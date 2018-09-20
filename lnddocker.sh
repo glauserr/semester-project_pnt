@@ -16,11 +16,16 @@ export NETWORK="simnet"
 # Functions (helpers) #
 #######################
 # input: <object> <key>
+# Note: does not work for multiple appearance of the key
 get_value() {
 	obj="$1"
 	key="$2"
-	echo "${obj}" | grep -o "\"${key}\": \"[0-9a-z]*\"" \
-	| sed -e "s/${key}//" | grep -o '[0-9a-z]*'	
+	# echo "${obj}" | grep -o "\"${key}\": \"[0-9a-zA-Z[:space:]]*\"" \
+	# | sed -e "s/${key}//" | grep -o ': "[0-9a-zA-Z[:space:]]*"'	
+
+	echo "${obj}" | grep -o "\"${key}\": \"[0-9a-zA-Z[:space:]]*\"" \
+	| sed -e "s/${key}//" | grep -o '"[0-9a-zA-Z[:space:]]*"' \
+	| tail -1 | grep -o '[0-9a-zA-Z[:space:]]*'
 }
 
 log(){
@@ -107,6 +112,7 @@ wait_till_node_ready(){
 		fi
 		s=$(expr $s + 200)
 	done
+	log "$node ready"
 }
 
 # input: <node (e.g. n0)>
@@ -200,12 +206,11 @@ connect_2nodes() {
 	out=$(run_node_bashCmd "$node1" "$cmd")
 	log "connecting $node1 and $node2. ${pubkey}@${host}"
 	log "connect_2nodes: ${out}"
-	echo "$node1 - $node2 connected"
-	#TODO: check if connected
+	# echo "$node1 - $node2 connected"
 }
 
 # input: <node1> <node2>
-connected(){
+is_connected(){
 	node1="$1"
 	node2="$2"
 	retVal=false
@@ -230,10 +235,10 @@ connected(){
 wait_till_connected(){
 	node1="$1"
 	node2="$2"
-	until [[ $(connected "$node1" "$node2") = true ]]; do
-		echo wait
+	until [[ $(is_connected "$node1" "$node2") = true ]]; do
 		sleep 0.2
 	done
+	log "$node1 - $node2 connected"
 }
 
 
@@ -256,6 +261,28 @@ open_channel(){
 	fi
 }
 
+# input: <node> <funding_txid>
+is_open(){
+	node="$1"
+	funding_txid="$2"
+	retVal=false
+	exists=$(list_channels "$node" | grep -o "$funding_txid")
+	log "is_open: exists: $exists"
+	if [[ -n "$exists" ]]; then
+		retVal=true
+	fi
+	echo "$retVal"
+}
+
+wait_till_opened(){
+	node="$1"
+	txid="$2"
+	until [[ $(is_open "$node" "$txid") = true ]]; do
+		sleep 0.2
+	done
+	log "$node: $txid, channel is open"	
+}
+
 # input: <node1> <funding_txid>
 close_channel(){
 	node="$1"
@@ -271,6 +298,7 @@ send_payment() {
 	node2="$2"
 	amount="$3"
 
+	retVal=failed
 	# add invoice on node2 side
 	cmd="lncli --network=simnet addinvoice --amt=${amount}"
 	grep='pay_req\|r_hash'
@@ -281,8 +309,14 @@ send_payment() {
 	# send payment from node1 to node2 
 	cmd="echo yes | lncli --network=simnet sendpayment --pay_req=${pay_req}"
 	out=$(run_node_bashCmd "$node1" "$cmd")
-	log "send_payment ${node1} to ${node2}, amount: ${amount}. Success: ${out}"
-	echo "$out"
+	error=$(get_value "$out" 'payment_error')
+	if [[ -z "$error" ]]; then
+		log "send_payment, ${node1} to ${node2}, amount: ${amount}. Success: ${out}"
+		retVal=successful
+	else
+		log "send_payment, ${node1} to ${node2}, amount: ${amount}. Failed: ${out}"
+	fi
+	echo "$retVal"
 }
 
 ########

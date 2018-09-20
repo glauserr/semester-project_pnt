@@ -1,32 +1,6 @@
 #!/bin/python3
 
-from subprocess import Popen
-from subprocess import PIPE
-
-# Popen(["create_node", "n0"], stdout=PIPE, stderr=PIPE)
-# process = Popen("echo test".split(), stdout=PIPE)
-# output, error = process.communicate()
-# print(output, error)
-
-# shell = None 
-# env = None 
-# stdin = None 
-# timeout = None
-
-# args = ["n0"]
-# cmdline = '. ./{script} && {func} {args}'.format(
-#     script=str("lnddocker.sh"),
-#     func="create_node", args=' '.join("'{0}'".format(x) for x in args))
-
-# print(cmdline)
-# proc = Popen(cmdline, shell=True, executable=shell, env=env,
-#                 stdout=PIPE, stderr=PIPE,
-#                 stdin=PIPE if stdin else None)
-# stdout, stderr = proc.communicate(input=stdin, timeout=timeout)
-# print(stdout)
-
-#########################
-
+import sys
 from time import sleep
 
 import shellfuncs 
@@ -46,6 +20,11 @@ with shellfuncs.config(shell='/bin/bash'):
     from lnddocker import close_channel
     from lnddocker import wait_till_node_ready
     from lnddocker import wait_till_synchronized
+    from lnddocker import wait_till_connected
+    from lnddocker import cleanup
+    from lnddocker import is_open
+
+import genrandomtxs as txsfile
 
 def format(ShellFuncReturn):
     R = ('\n', '\r', '\t')
@@ -55,62 +34,136 @@ def format(ShellFuncReturn):
             tmp[i] = tmp[i].replace(r,'')
     return [ShellFuncReturn[0]] +  tmp
 
-# # rcode, out, err = cleanup()
-# # print(out, err)
-# # sleep(3000)
+class Network():
+    nodes = []
+    network = {} # {n1: {channels: [{n2:dkkd, id:2943}]}
+    tmpl_channels = {"channels": []}
+    tmpl_entry = {"target_node": "", "capital": 0, "id": ""}
 
-# rcode, out, err = test("frist", "second")
-# print(out)
+    def __init__(self, n_nodes):
+        self.init_master()
+        self.init(n_nodes)
 
-# # master node
-def setup():
-    rcode, out, err = format(create_node("nmaster"))
-    # print("rcode: {}".format(rcode))
-    print("out: {}".format(out))
-    # print("err: {}".format(err))
-    wait_till_node_ready("nmaster")
+    def init_master(self):
+        print("clean up... ", end="")
+        cleanup()
+        print("Done")
 
-    rcode, address, err = format(create_newaddress("nmaster"))
-    # print("rcode: {}".format(rcode))
-    print("addr: {}".format(address))
-    # print("err: {}".format(err))
+        init = "initializing master node... "
+        print(init)
+        rcode, out, err = format(create_node("nmaster"))
+        print(" node: {}".format(out))
+        wait_till_node_ready("nmaster")
 
-    rcode, out, err = format(set_mining_address(address))
-    # print("out:",out)
-    # print("err:", err)
-    rcode, out, err = mine_blocks(500)
-    print("out:",out)
-    # print("err:", err)
-    wait_till_synchronized("nmaster")
-    out = format(get_balance("nmaster"))
-    print(out)
+        rcode, address, err = format(create_newaddress("nmaster"))
+        print(" addr: {}".format(address))
 
+        set_mining_address(address)
+        mine_blocks(500)
 
-def star():
-    N_NODES = 3
-    nodes = list()
+        wait_till_synchronized("nmaster")
+        out = format(get_balance("nmaster"))
+        print(" balance: {}".format(out[1]))
 
-    for i in range(0, N_NODES):
-        nodes.append("n{}".format(i))
-        create_node(nodes[i])
+    def init(self, n_nodes):
+        print("creating {} nodes... ".format(n_nodes))
+        self.createnodes(n_nodes)
+        print(self.nodes)
+        new_channels = list()
+        new_payments = list()
+        for node in self.nodes:
+            new_channels.append(("nmaster", node, 1100000))
+            new_payments.append(("nmaster", node, 1000000))
+        print("connecting nodes to master...")
+        self.connectnodes([(c[0],c[1]) for c in new_channels ])
+        print("opening channels to master...")
+        self.openchannels(new_channels)
+        print(self.network)
+        print("send payment to nodes...")
+        self.sendpayments(new_payments)
+        print("closing channels to master")
+        self.closechannels([(c[0],c[1]) for c in new_channels ])
+        print("initialization DONE")
 
-    for node in nodes:
-        # TODO: there is a problem when we have many nodes 
-        wait_till_node_ready(node)
-        connect_2nodes("nmaster", node)
+    def createnodes(self, n_nodes, name=None):
+        startindex = 0
+        prefix = name
+        if prefix == None:
+            startindex = len(self.nodes)
+            prefix = "n"
+    
+        endindex = startindex + n_nodes
 
-    sleep(5)
-    channels = []
-    for node in nodes: 
-        rcode, fdtx, err = format(open_channel("nmaster", node, 110000)) # 0.011 BTC
-        channels.append(fdtx)
+        for i in range(startindex, endindex):
+            if name != None and i == 0:
+                n_name = name
+            else:
+                n_name = prefix + "{}".format(i)
+
+            create_node(n_name)        
+            self.nodes.append(n_name)
+
+    def connectnodes(self, list_args):
+        # [ (n1, n2), (), ..]
+        for src, target in list_args:
+            wait_till_node_ready(src)
+            wait_till_node_ready(target)
+            connect_2nodes(src, target)
+
+    def openchannels(self, list_args):
+        # [ (n1, n2, capital), (), ..]
+        for src, target, capital in list_args:
+            wait_till_connected(src, target)
+            wait_till_synchronized(src)
+            wait_till_synchronized(target)
+            rc, fdtx, err = format(open_channel(src, target, capital))
+            mine_blocks(3)
+            if format(is_open(src, fdtx))[1] == "true":
+                entry = self.tmpl_entry.copy()
+                entry['target_node'] = target
+                entry['capital'] = capital
+                entry['id'] = fdtx
+
+                if src not in self.network:
+                    self.network.update({src:self.tmpl_channels.copy()})
+
+                self.network[src]['channels'].append(entry)
+
+    def closechannels(self, list_args):
+        # [ (src, target), (), ..]
+        for src, target in list_args:
+            channels = self.network[src]['channels']
+            print(channels)
+            entry = next((item for item in channels if item["target_node"] == target), {})
+                
+            if entry != {}:
+                close_channel(src, entry['id'])
+                self.network[src]['channels'].remove(entry)
+            else:
+                print("remove failed: {}".format(entry))
+
         mine_blocks(3)
 
-    for node in nodes:
-        send_payment("nmaster", node, 1000000) # 0.001 BTC
-        # close_channel("nmaster", channels[node][0])
-        mine_blocks(3)
+
+    def sendpayments(self, list_args):
+        # [ (src, target, amount), (), ..]
+        retVal = list()
+        for src, target, amount in list_args:
+            rc, state, err = format(send_payment(src, target, amount))
+            if state == "successful":
+                retVal.append(True)
+            else:
+                retVal.append(False)
+
+        return retVal
+
+class Star(Network):
+    N_NODES = 30
+
+    def __init(self):
+        print("creating star topology...")
+        super()__init__(N_NODES)
+
 
 if __name__ == "__main__":
-    setup()
-    star()
+    Network(3)
