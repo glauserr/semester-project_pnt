@@ -10,6 +10,7 @@ SETUP:
 		$ pip3 install shellfuncs
 
 CONFIG:
+
 	Set permission to docker engine:
 		$ sudo usermod -a -G docker $USER
 
@@ -19,4 +20,5 @@ CONFIG:
 
 
 RUN:
+
 	python3 topology.py
