@@ -1,4 +1,4 @@
-# semester-project_pnt
+# Semester Project - Exploring Centralized Payment Network Topology
 
 
 SETUP:
