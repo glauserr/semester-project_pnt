@@ -3,7 +3,7 @@
 import sys
 from time import sleep
 
-import shellfuncs 
+import shellfuncs
 
 # from lnddocker import test
 with shellfuncs.config(shell='/bin/bash'):
@@ -26,17 +26,19 @@ with shellfuncs.config(shell='/bin/bash'):
 
 import genrandomtxs as txsfile
 
+
 def format(ShellFuncReturn):
     R = ('\n', '\r', '\t')
     tmp = [x.decode("utf-8") for x in ShellFuncReturn[1:3]]
-    for i,t in enumerate(tmp,0):
+    for i, t in enumerate(tmp, 0):
         for r in R:
-            tmp[i] = tmp[i].replace(r,'')
-    return [ShellFuncReturn[0]] +  tmp
+            tmp[i] = tmp[i].replace(r, '')
+    return [ShellFuncReturn[0]] + tmp
+
 
 class Network():
     nodes = []
-    network = {} # {n1: {channels: [{n2:dkkd, id:2943}]}
+    network = {}  # {n1: {channels: [{n2:dkkd, id:2943}]}
     tmpl_channels = {"channels": []}
     tmpl_entry = {"target_node": "", "capital": 0, "id": ""}
 
@@ -75,14 +77,13 @@ class Network():
             new_channels.append(("nmaster", node, 1100000))
             new_payments.append(("nmaster", node, 1000000))
         print("connecting nodes to master...")
-        self.connectnodes([(c[0],c[1]) for c in new_channels ])
+        self.connectnodes([(c[0], c[1]) for c in new_channels])
         print("opening channels to master...")
         self.openchannels(new_channels)
-        print(self.network)
         print("send payment to nodes...")
         self.sendpayments(new_payments)
         print("closing channels to master")
-        self.closechannels([(c[0],c[1]) for c in new_channels ])
+        self.closechannels([(c[0], c[1]) for c in new_channels])
         print("initialization DONE")
 
     def createnodes(self, n_nodes, name=None):
@@ -91,7 +92,7 @@ class Network():
         if prefix == None:
             startindex = len(self.nodes)
             prefix = "n"
-    
+
         endindex = startindex + n_nodes
 
         for i in range(startindex, endindex):
@@ -100,7 +101,7 @@ class Network():
             else:
                 n_name = prefix + "{}".format(i)
 
-            create_node(n_name)        
+            create_node(n_name)
             self.nodes.append(n_name)
 
     def connectnodes(self, list_args):
@@ -125,7 +126,7 @@ class Network():
                 entry['id'] = fdtx
 
                 if src not in self.network:
-                    self.network.update({src:self.tmpl_channels.copy()})
+                    self.network.update({src: self.tmpl_channels.copy()})
 
                 self.network[src]['channels'].append(entry)
 
@@ -133,9 +134,9 @@ class Network():
         # [ (src, target), (), ..]
         for src, target in list_args:
             channels = self.network[src]['channels']
-            print(channels)
-            entry = next((item for item in channels if item["target_node"] == target), {})
-                
+            entry = next(
+                (item for item in channels if item["target_node"] == target), {})
+
             if entry != {}:
                 close_channel(src, entry['id'])
                 self.network[src]['channels'].remove(entry)
@@ -143,7 +144,6 @@ class Network():
                 print("remove failed: {}".format(entry))
 
         mine_blocks(3)
-
 
     def sendpayments(self, list_args):
         # [ (src, target, amount), (), ..]
@@ -157,12 +157,13 @@ class Network():
 
         return retVal
 
+
 class Star(Network):
     N_NODES = 30
 
-    def __init(self):
+    def __init__(self):
         print("creating star topology...")
-        super()__init__(N_NODES)
+        super().__init__(N_NODES)
 
 
 if __name__ == "__main__":
