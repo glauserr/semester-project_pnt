@@ -8,6 +8,11 @@ SETUP:
 	3. install python3 and pip3
 	4. install python modules: 
 		$ pip3 install shellfuncs
+		$ pip3 install matplotlib
+
+	5. packages:
+	sudo apt-get install python3-tk
+
 
 CONFIG:
 

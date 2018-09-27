@@ -6,8 +6,8 @@ from random import SystemRandom
 N_NODES = 30
 N_TXS = 100
 AMOUNT_MIN = 1
-AMOUNT_MAX = 1000
-FILE = "randomtxs.data"
+AMOUNT_MAX = 100
+FILE = "randomtx.data"
 _sysrand = SystemRandom()
 
 
