@@ -1,7 +1,6 @@
 #!/bin/python3
 
-import os
-import sys
+import os, sys, re
 import math
 from time import sleep
 from random import SystemRandom
@@ -23,10 +22,10 @@ class Executor(Network):
 
     def __init__(self, simulate=True):
         self.simulate = simulate
-        # [[src, target, capital, max capital], [], ..]
-        self.channels = list()  
+        # [[src, target, capital, max capital, open channels], [], ..]
+        self.channels = list()
         # [n1, n4, etc]
-        self.passednodes = list()  
+        self.passednodes = list()
 
         self.nodes = []
         self.network = {}
@@ -38,8 +37,13 @@ class Executor(Network):
                 self.nodes.append(name)
                 self.network[name] = {'channels': []}
 
-    def run(self, filename):
+    def run(self, filename, online=False):
+        self.online = online 
+        if not self.online:
+            for chan in self.channels:
+                chan[4] = 1
         txs = readtxsdata(filename)
+        self.ntxs = 0
         # print(txs)
 
         for src, dest, amount in txs[2:]:
@@ -49,6 +53,7 @@ class Executor(Network):
             # print("From {} to dest: {}".format(src, dest))
             # print(src, end="")
             self.calccapital(src, dest, amount)
+            self.ntxs += 1
             if self.simulate:
                 # TODO: Connect and open channels. Send txs
                 # self.connectnodes([(c[0], c[1]) for c in new_channels])
@@ -60,14 +65,13 @@ class Executor(Network):
         # calc total capital.
         tcapital = 0
         nchannels = 0
-        for src, target, currentstate, capital in self.channels:
+        for src, target, currentstate, capital, created in self.channels:
             tcapital += capital
-            nchannels += 1
+            nchannels += created
 
         bidirectchannels = nchannels / 2
-        tfees = bidirectchannels * self.fees
 
-        return (tcapital, bidirectchannels)
+        return (tcapital, bidirectchannels, self.ntxs)
 
     def calccapital(self, node, dest, amount):
         if node == dest:
@@ -98,20 +102,25 @@ class Executor(Network):
     def updatechannels(self, senderindex, receiverindex, amount):
         # make sure that the channel is allowed
         if senderindex != None and receiverindex != None:
+            # [src, target, capital, max capital, open channels]
             senderchannel = self.channels[senderindex]
             receiverchannel = self.channels[receiverindex]
 
-            # [src, target, capital, max capital]
+            # online:
+            if self.online:
+                if senderchannel[2] < int(amount):
+                    # TODO: open new channel in case of simulating!
+                    senderchannel[4] += 1
+                    receiverchannel[4] += 1
+                    senderchannel[2] += 2 * int(amount)
+                    senderchannel[3] += 2 * int(amount)
+
             senderchannel[2] -= int(amount)
             receiverchannel[2] += int(amount)
 
-            # print(senderchannel[2])
-
-            if senderchannel[2] < 0 and senderchannel[2] < -1* senderchannel[3]:
-                senderchannel[3] = -1 * senderchannel[2]
-
-            # online: 
-
+            if not self.online:
+                if senderchannel[2] < 0 and senderchannel[2] < -1 * senderchannel[3]:
+                    senderchannel[3] = -1 * senderchannel[2]
 
         else:
             print("Fatal error: connection missing")
@@ -207,10 +216,10 @@ class Star(Executor):
         self.network[hub]['routetable'] = []
 
         for i, node in enumerate(self.nodes[1:], 1):
-            # sender, receiver, capital, maxcapital
-            self.channels.append([hub, node, 0, 0])
-            # sender, receiver, capital, maxcapital
-            self.channels.append([node, hub, 0, 0])
+            # sender, receiver, capital, maxcapital, open channels
+            self.channels.append([hub, node, 0, 0, 0])
+            # sender, receiver, capital, maxcapital, open channels
+            self.channels.append([node, hub, 0, 0, 0])
 
             self.network[node]['routetable'] = []
             entry = {}
@@ -233,11 +242,11 @@ class BinaryTree(Executor):
             if i == 0:
                 continue
             indexparent = int((i-1)/2)
-            # [sender, receiver, capital, maxcapital]
+            # [sender, receiver, capital, maxcapital, open channels]
             self.channels.append(
-                [self.nodes[indexparent], self.nodes[i], 0, 0])
+                [self.nodes[indexparent], self.nodes[i], 0, 0, 0])
             self.channels.append(
-                [self.nodes[i], self.nodes[indexparent], 0, 0])
+                [self.nodes[i], self.nodes[indexparent], 0, 0, 0])
 
     def calccapital(self, node, dest, amount):
 
@@ -305,9 +314,9 @@ class Ring(Executor):
     def create(self):
         for i in range(len(self.nodes)):
             childindex = (i + 1) % len(self.nodes)
-            # sender, receiver, capital, maxcapital
-            self.channels.append([self.nodes[i], self.nodes[childindex], 0, 0])
-            self.channels.append([self.nodes[childindex], self.nodes[i], 0, 0])
+            # sender, receiver, capital, maxcapital, open channels
+            self.channels.append([self.nodes[i], self.nodes[childindex], 0, 0, 0])
+            self.channels.append([self.nodes[childindex], self.nodes[i], 0, 0, 0])
 
     def calccapital(self, node, dest, amount):
 
@@ -374,9 +383,9 @@ class RandomSpanningTree(Executor):
             if len(sptset) > 0:
                 indexsptset = _sysrand.randint(0, len(sptset) - 1)
                 chosennodespt = sptset[indexsptset]
-                # sender, receiver, capital, maxcapital
-                self.channels.append([chosennodespt, chosennode, 0, 0])
-                self.channels.append([chosennode, chosennodespt, 0, 0])
+                # sender, receiver, capital, maxcapital, open channels
+                self.channels.append([chosennodespt, chosennode, 0, 0, 0])
+                self.channels.append([chosennode, chosennodespt, 0, 0, 0])
 
             nodeset.remove(chosennode)
             sptset.append(chosennode)
@@ -410,8 +419,8 @@ class FullMesh(Executor):
             self.network[src]['routetable'] = []
             for target in self.nodes:
                 if src != target:
-                    # sender, receiver, capital, maxcapital
-                    self.channels.append([src, target, 0, 0])
+                    # sender, receiver, capital, maxcapital, open channels
+                    self.channels.append([src, target, 0, 0, 0])
 
         self.createroutetable()
 
@@ -429,38 +438,68 @@ class FullMesh(Executor):
 
 if __name__ == "__main__":
     # Network(3)
-    fees = 100
+    fees = 1
     # tnxfile = "orderedtxs.data"
     tnxfile = "randomtxs.data"
+    # header = readfile(tnxfile)[0]
+    # found = re.findall('N_TXS: (.+?);', str(header))
+    # if len(found) == 0:
+    #     print("Error. {} could not be read".format(tnxfile))
+    #     print("exit")
+    #     exit()
+
+    # numoftxs = int(found[0])
 
     fmdrw = "topology_fullmesh.png"
     stardrw = "topology_star.png"
     binarytreedrw = "topology_binarytree.png"
     ringdrw = "topology_ring.png"
     randomsptdrw = "topology_randomspanningtree.png"
+    
 
-    def output(tcapital, tfees, numberofchannels):
-        print("Total capital: {}, Total fees (open): {} (channels: {})".format(
-            tcapital, tfees, numberofchannels))
+    def output(msg, tcapital, tfees, numberofchannels, txs):
+        print("[{}]: avg capital: {}, avg fees (open): {} (channels: {}, txs: {})".format(
+            msg, tcapital, tfees, numberofchannels, txs))
+
+    def run(topology, name):
+        (cap, chan, txs) = topology.run(tnxfile)
+        capptxs = cap/txs
+        feestxs = chan * fees/txs
+        output("offline", capptxs, feestxs, chan, txs)
+
+        (capON, chanON, txs) = topology.run(tnxfile, online=True)
+        capptxsON = capON/txs
+        feestxsON = chanON * fees/txs
+        output("online", capptxsON, feestxsON, chanON, txs)
+
+        plt.scatter(feestxs, capptxs, c='b', zorder=1000)
+        plt.scatter(feestxsON, capptxsON, c='g', zorder=1000)
+
+        plt.annotate(name, (feestxs, capptxs), zorder=1001)
+        plt.annotate(name, (feestxsON, capptxsON), zorder=1001)
+
+
+    plt.clf()
+    plt.xlabel("Fees / Transactions")
+    plt.ylabel("Capital / Transactions")
+    plt.axis([0, 2 * fees, 0, 4200])
+    plt.grid(True)
 
     fullmesh = FullMesh(simulate=False)
-    (fmcap, fmchan) = fullmesh.run(tnxfile)
-    output(fmcap, fmchan * fees, fmchan)
+    (fmcap, fmchan,optimaltxs) = fullmesh.run(tnxfile)
+    optimalcap = fmcap / optimaltxs
 
-    star = Star(simulate=False)
-    star.createtopologyplot(stardrw)
-    (scap, schan) = star.run(tnxfile)
-    output(scap, schan * fees, schan)
+    topology = Star(simulate=False)
+    # topology.createtopologyplot(stardrw)
+    run(topology, "star")
 
-    binarytree = BinaryTree(simulate=False)
-    binarytree.createtopologyplot(binarytreedrw)
-    (btcap, btchan) = binarytree.run(tnxfile)
-    output(btcap, btchan * fees, btchan)
+    topology = BinaryTree(simulate=False)
+    # topology.createtopologyplot(binarytreedrw)
+    run(topology, "binarytree")
 
-    ring = Ring(simulate=False)
-    ring.createtopologyplot(ringdrw)
-    (rcap, rchan) = ring.run(tnxfile)
-    output(rcap, rchan * fees, rchan)
+    topology = Ring(simulate=False)
+    # topology.createtopologyplot(ringdrw)
+    run(topology, "ring")
 
     # search for a better random spanning tree
     randomspt = RandomSpanningTree(simulate=False)
@@ -469,39 +508,46 @@ if __name__ == "__main__":
     exists = os.path.isfile(randomsptdata)
     if exists:
         header = randomspt.load(randomsptdata)
-        bestcapital = int(header[0])
+        bestcapital = float(header[0])
+        bestcapitalfees = float(header[1])
+        bestcapitalchan = float(header[2])
+        bestcapitaltxs = float(header[3])
+        bestcapitalON = float(header[4])
+        bestcapitalfeesON = float(header[5])
+        bestcapitalchanON = float(header[6])
+        bestcapitaltxsON = float(header[7])
     else:
         bestcapital = sys.maxsize
+        bestcapitalON = sys.maxsize
 
     for i in range(50):
         randomspt.recreate()
-        (rstcap, rstchan) = randomspt.run(tnxfile)
-        if rstcap < bestcapital:
-            bestcapital = rstcap
-            randomspt.save(randomsptdata, [bestcapital])
-            randomspt.createtopologyplot(randomsptdrw)
-    
-    output(bestcapital, rstchan * fees, rstchan)
+        (rstcap, rstchan, txs) = randomspt.run(tnxfile)
 
-    plt.clf()
-    plt.xlabel("Channels")
-    plt.ylabel("Capital")
-    plt.axis([26, 32, 10000, 200000])
-    plt.grid(True)
-    # plt.scatter(fmchan, fmcap, c='b', zorder=1000)
-    plt.scatter(schan, scap, c='b', zorder=1000)
-    plt.scatter(btchan, btcap, c='b', zorder=1000)
-    plt.scatter(rchan, rcap,  c='b', zorder=1000)
-    plt.scatter(rstchan, bestcapital, c='b', zorder=1000)
+        rstchanON = rstchan
+        if rstcap/txs < bestcapital:
+            bestcapital = rstcap/txs
+            bestcapitalfees = rstchan * fees/txs
+            bestcapitalchan = rstchan
+            bestcapitaltxs = txs
+            (rstcapON, rstchanON, txsON) = randomspt.run(tnxfile, online=True)
+            bestcapitalON = rstcapON/txsON
+            bestcapitalfeesON = rstchanON * fees/txsON
+            bestcapitalchanON = rstchanON
+            bestcapitaltxsON = txsON
+            randomspt.save(randomsptdata, [bestcapital, bestcapitalfees, bestcapitalchan, bestcapitaltxs,
+                bestcapitalON, bestcapitalfeesON, bestcapitalchanON, bestcapitaltxsON])
+            # randomspt.createtopologyplot(randomsptdrw)
 
-    # plt.annotate("full-mesh", (fmchan, fmcap), zorder=1001)
-    plt.annotate("star", (schan, scap), zorder=1001)
-    plt.annotate("binarytree", (btchan, btcap), zorder=1001)
-    plt.annotate("ring", (rchan, rcap), zorder=1001)
-    plt.annotate("randomspt", (rstchan, bestcapital), zorder=1001)
+    output("offline", bestcapital, bestcapitalfees, bestcapitalchan, bestcapitaltxs)
+    output("online", bestcapitalON, bestcapitalfeesON, bestcapitalchanON, bestcapitaltxsON)
+    plt.scatter(bestcapitalfees, bestcapital, c='b', zorder=1000)
+    plt.scatter(bestcapitalfeesON, bestcapitalON, c='g', zorder=1000)
+    plt.annotate("randomspt", (bestcapitalfees, bestcapital), zorder=1001)
+    plt.annotate("randomspt", (bestcapitalfeesON, bestcapitalON), zorder=1001)
 
-    print("Optimal level: {}".format(fmcap))
-    plt.plot(np.linspace(0, 100, num=20), [fmcap] * 20, c='r', zorder=1000)
-    plt.annotate("optimal", (27, fmcap), color='r', zorder=1001)
+    print("Optimal level: {}, transactions: {}".format(optimalcap, optimaltxs))
+    plt.plot(np.linspace(0, 100, num=20), [optimalcap] * 20, c='r', zorder=1000)
+    plt.annotate("optimal", (0, optimalcap), color='r', zorder=1001)
 
     plt.show()
