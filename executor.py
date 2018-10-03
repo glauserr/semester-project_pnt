@@ -17,15 +17,18 @@ class Executor(Network):
     # {n1: {channels: [{n2:dkkd, id:2943}],
     #       routetable: [{dest:dkjf, sendto:kdjlf}]}
 
-    def __init__(self, simulate=True):
+    def __init__(self, simulate=True, nnodes=None):
         self.simulate = simulate
         # [[src, target, capital, max capital, open channels], [], ..]
         self.channels = list()
         # [n1, n4, etc]
         self.passednodes = list()
-
         self.nodes = []
         self.network = {}
+
+        if nnodes!= None:
+            self.N_NODES = nnodes
+
         if self.simulate:
             super().__init__(self.N_NODES)
         else:
@@ -93,7 +96,7 @@ class Executor(Network):
             return 0
         routetable = self.network[node]['routetable']
         sendto = next(
-            (item["sendto"] for item in routetable if item["dest"] == 'ALL' or item["dest"] == dest), None)
+            (item["sendto"] for item in routetable if item["dest"] == dest), None)
 
         if sendto == None:
             print("Fatal error: lookup error. node: {}, dest: {}, amount: {}".format(

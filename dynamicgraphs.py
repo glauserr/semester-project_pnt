@@ -74,10 +74,10 @@ class DynamicTree(Executor, Plotter):
                     Ct += Cntmp - Cn
                     ci = hi
 
-                if Ct <= ai:
+                if True: #Ct <= ai:
                     for t in tablemap:
                         t[0] = t[1]
-                else:
+                else: # Connect -> generates cycles
                     # print("update")
                     # sender, receiver, capital, maxcapital, open channels
                     self.channels.append([si, ri, 0, 0, 0])
@@ -150,15 +150,108 @@ class DynamicTree(Executor, Plotter):
             table[ri][i] += ai
 
 
+class EdgeReductionAlg(Executor, Plotter):
+    def __init__(self, simulate=False):
+        super().__init__(simulate)
+        # self.create()
+
+    def executetxs(self, txs):
+        self.edgestates = {}
+        self.ntxs = 0
+
+        for i,node in enumerate(self.nodes,0):
+            self.network[node]['routetable'] = []
+
+        totaltxs = len(txs)
+
+        for tx in txs:
+
+            si, ri, ai = tx
+            ai = int(ai)
+
+            if ri < si: 
+                t = ri
+                ri = si
+                si = t
+                ai = (-1) * ai
+
+            edge = "n{}-n{}".format(si,ri)
+
+            try:
+                #[[index, s, r, a,],[],..]
+                states = self.edgestates[edge]['states']
+            except KeyError:
+                self.edgestates[edge] = {'states':[], 'maxcapital': [0,0],
+                    'maxTx': [0,0]}
+                states = self.edgestates[edge]['states']
+                states.append([-1, 0, 0, 0, 0])
+
+            last = len(states) - 1
+            state1 = states[last][1] - ai
+            state2 = states[last][2] + ai
+            state = [self.ntxs, state1, state2, ai]
+            states.append(state) 
+
+            maxcap = self.edgestates[edge]['maxcapital']
+            maxtx = self.edgestates[edge]['maxTx']
+            if state1 < maxcap[0]:
+                maxcap[0] = state1
+                maxtx[0] = ai                
+
+            if state2 < maxcap[1]:
+                maxcap[1] = state2
+                maxtx[1] = ai                
+
+            self.ntxs += 1
+
+        error = 0
+        for key in self.edgestates:
+            edge = self.edgestates[key]
+
+            maxtx = max(edge['maxTx'])
+            maxcap = sum(edge['maxcapital'])
+
+            if maxtx < maxcap:
+                error += maxcap - maxtx
+
+        print("error: {}, per tx: {}".format(error, error/self.ntxs))
+        print("exit")
+        exit()
+
+
 if __name__ == "__main__":
 
+    costs = 1
     fees = 1
     tnxfile = "randomtxs1000.data"
 
-    def output(msg, tcapital, numberofchannels, txs):
-        print("[{}]: capital/txs: {} (channels: {}, txs: {})".format(
-            msg, tcapital/txs, numberofchannels, txs))
+    plt.clf()
+    plt.xlabel("Needed capital / transactions")
+    plt.ylabel("Profit / transactions")
+    plt.axis([180, 500, 0.92, 1])
+    plt.grid(True)
 
-    topology = DynamicTree()
-    (cap, chan, txs) = topology.run(tnxfile)
-    output("offline", cap, chan, txs)
+
+    def output(msg, capital, channels, txs):
+        profit = (txs * fees - channels * costs) / txs
+        capital = capital / txs
+        print("[{}]: profit per Txs: {}, capital per Txs: {}, (channels: {}, txs: {})".format(
+            msg, profit, capital, channels, txs))
+        return profit
+
+    def scatter(capital, channels, txs, name, namepos, c='b'):
+        profit = (txs * fees - channels * costs) / txs
+        capital = capital / txs
+        x,y = namepos
+        plt.scatter(capital, profit, c=c, zorder=1000)
+        plt.annotate(name, (capital+x,profit+y), zorder=1001)
+    
+    # topology = DynamicTree()
+    # cap, chan, txs = topology.run(tnxfile)
+    # scatter(cap, chan, txs, "maxTx", (1, 0.01))
+    # output("offline", cap, chan, txs)
+
+    # plt.show()
+
+    topology = EdgeReductionAlg()
+    cap, chan, txs = topology.run("3node.data")

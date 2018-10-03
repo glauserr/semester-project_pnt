@@ -16,30 +16,40 @@ from plotter import Plotter
 
 class Star(Executor, Plotter):
 
-    def __init__(self, simulate=True):
+    def __init__(self, simulate=True, nnodes=None):
         print("creating star topology...")
-        super().__init__(simulate)
-        self.create()
+        self.simulate = simulate
+        self.nnodes = nnodes
+        self.superinit()
+        self.create(self.nodes[0])
 
-    def create(self):
-        hub = self.nodes[0]
+    def superinit(self):
+        super().__init__(simulate=self.simulate, nnodes=self.nnodes)
+
+    def create(self, hub):
+        hub = hub
 
         self.network[hub]['routetable'] = []
 
-        for i, node in enumerate(self.nodes[1:], 1):
+        for node in self.nodes:
+            if node == hub:
+                continue
             # sender, receiver, capital, maxcapital, open channels
             self.channels.append([hub, node, 0, 0, 0])
             # sender, receiver, capital, maxcapital, open channels
             self.channels.append([node, hub, 0, 0, 0])
 
-            self.network[node]['routetable'] = []
-            entry = {}
-            entry['dest'] = "ALL"
-            entry['sendto'] = hub
-            self.network[node]['routetable'].append(entry)
-            self.network[hub]['routetable'].append(
-                {'dest': node, 'sendto': node})
+        self.createroutetable()
 
+    def runall(self, filename):
+        retval = []
+        for node in self.nodes:
+            self.superinit()
+            self.create(node)
+            cap, ch, txs = self.run(filename)
+            retval.append([node, cap, ch, txs])
+
+        return retval
 
 class BinaryTree(Executor, Plotter):
 
@@ -61,61 +71,6 @@ class BinaryTree(Executor, Plotter):
 
         self.createroutetable()
 
-    # def calccapital(self, node, dest, amount):
-
-    #     if dest == node:
-    #         # TODO: write to file
-    #         # print("")
-    #         return 0
-
-    #     nodeindex = self.nodes.index(node) + 1
-    #     destindex = self.nodes.index(dest) + 1
-
-    #     nextnode = None
-
-    #     if destindex < nodeindex:
-    #         # send to parent
-    #         nextnode = int(nodeindex / 2)
-
-    #     # is in subtree of current node? else send to parent
-    #     depth = 0
-    #     while depth < 5:
-    #         depth += 1
-    #         numofchildren = int(pow(2, depth))
-    #         childlowindex = nodeindex * numofchildren
-    #         childhighindex = childlowindex + numofchildren - 1
-
-    #         if destindex < childlowindex:
-    #             # send to parent
-    #             nextnode = int(nodeindex / 2)
-    #             break
-
-    #         elif destindex in range(childlowindex, childlowindex + int(numofchildren/2)):
-    #             # send to left child
-    #             nextnode = nodeindex * 2
-    #             break
-
-    #         elif destindex in range(childlowindex + int(numofchildren/2), childhighindex + 1):
-    #             # send to right child
-    #             nextnode = nodeindex * 2 + 1
-    #             break
-    #         else:
-    #             # repeat
-    #             pass
-
-    #     nextnode = self.nodes[int(nextnode) - 1]
-
-    #     indexnode = next(
-    #         (i for i, item in enumerate(self.channels, 0) if item[0] == node and item[1] == nextnode), None)
-    #     indexnextnode = next(
-    #         (i for i, item in enumerate(self.channels, 0) if item[0] == nextnode and item[1] == node), None)
-
-    #     self.updatechannels(indexnode, indexnextnode, int(amount))
-
-    #     # TODO: write to file
-    #     # print(" -> {}".format(nextnode), end="")
-    #     return self.calccapital(nextnode, dest, amount)
-
 
 class Ring(Executor, Plotter):
 
@@ -132,47 +87,6 @@ class Ring(Executor, Plotter):
             self.channels.append([self.nodes[childindex], self.nodes[i], 0, 0, 0])
 
         self.createroutetable()
-
-    # def calccapital(self, node, dest, amount):
-
-    #     if node == dest:
-    #         # TODO: write to file
-    #         # print("")
-    #         return 0
-
-    #     nodeindex = self.nodes.index(node)
-    #     destindex = self.nodes.index(dest)
-
-    #     if nodeindex < destindex:
-    #         path1 = destindex - nodeindex
-    #         path2 = nodeindex + len(self.nodes) - destindex
-    #     else:
-    #         path1 = destindex + len(self.nodes) - nodeindex
-    #         path2 = nodeindex - destindex
-
-    #     if path1 < path2:
-    #         # send to left child
-    #         nextnode = (nodeindex + 1) % len(self.nodes)
-    #     else:
-    #         # send to right child
-    #         if nodeindex == 0:
-    #             nextnode = len(self.nodes) - 1
-    #         else:
-    #             nextnode = (nodeindex - 1) % len(self.nodes)
-
-    #     nextnode = self.nodes[int(nextnode)]
-
-    #     indexnode = next(
-    #         (i for i, item in enumerate(self.channels, 0) if item[0] == node and item[1] == nextnode), None)
-    #     indexnextnode = next(
-    #         (i for i, item in enumerate(self.channels, 0) if item[0] == nextnode and item[1] == node), None)
-
-    #     self.updatechannels(indexnode, indexnextnode, int(amount))
-
-    #     # sleep(2)
-    #     # TODO: write to file
-    #     # print(" -> {}".format(nextnode), end="")
-    #     return self.calccapital(nextnode, dest, amount)
 
 
 class RandomSpanningTree(Executor, Plotter):
@@ -251,11 +165,6 @@ class FullMesh(Executor, Plotter):
                     {'dest': n, 'sendto': n})
 
 
-def output(msg, capitalpertxs, numberofchannels, txs):
-    print("[{}]: capital/txs: {}, (channels: {}, txs: {})".format(
-        msg, capitalpertxs, numberofchannels, txs))
-
-
 # if __name__ == "__main__":
 #     tnxfile = "randomtxs1.data"
     
@@ -267,7 +176,12 @@ def output(msg, capitalpertxs, numberofchannels, txs):
 
 if __name__ == "__main__":
 
-    fees = 1
+    fees = 1 # fees for transaction
+    costs = 1 # cost to set up a channel
+
+    an = 0.0005
+
+
     tnxfile = "randomtxs1000.data"
 
     fmdrw = "topology_fullmesh.png"
@@ -276,94 +190,161 @@ if __name__ == "__main__":
     ringdrw = "topology_ring.png"
     randomsptdrw = "topology_randomspanningtree.png"
     
+    def output(msg, capital, channels, txs):
+        profit = (txs * fees - channels * costs) / txs
+        capital = capital / txs
+        print("[{}]: profit per Txs: {}, capital per Txs: {}, (channels: {}, txs: {})".format(
+            msg, profit, capital, channels, txs))
+        return profit
+
+    def scatter(capital, channels, txs, name, namepos, c='b'):
+        profit = (txs * fees - channels * costs) / txs
+        capital = capital / txs
+        x,y = namepos
+        plt.scatter(capital, profit, c=c, zorder=1000)
+        plt.annotate(name, (capital+x,profit+y), zorder=1001)
+
 
     def run(topology, name):
         (cap, chan, txs) = topology.run(tnxfile)
-        capptxs = cap/txs
-        feestxs = chan * fees/txs
-        output("offline", capptxs, chan, txs)
+        output("offline", cap, chan, txs)
 
         (capON, chanON, txs) = topology.run(tnxfile, online=True)
-        capptxsON = capON/txs
-        feestxsON = chanON * fees/txs
-        output("online", capptxsON, chanON, txs)
+        output("online", capON, chanON, txs)
 
-        plt.scatter(feestxs, capptxs, c='b', zorder=1000)
-        plt.scatter(feestxsON, capptxsON, c='g', zorder=1000)
-
-        plt.annotate(name, (feestxs, capptxs), zorder=1001)
-        plt.annotate(name, (feestxsON, capptxsON), zorder=1001)
+        scatter(cap, p, txs, name, (an, an))
+        # scatter(capON, pON, txs, name, (an, an), c='g')
 
 
     plt.clf()
-    plt.xlabel("Fees / Transactions")
-    plt.ylabel("Capital / Transactions")
-    plt.axis([0, 2.5 * fees, 0, 4200])
+    plt.xlabel("Needed capital / transactions")
+    plt.ylabel("Profit / transactions")
+    # plt.axis([0, 2.5 * fees, 0, 4200])
     plt.grid(True)
 
-    fullmesh = FullMesh(simulate=False)
-    (fmcap, fmchan,optimaltxs) = fullmesh.run(tnxfile, online=False)
-    optimalcap = fmcap / optimaltxs
+    CMD = sys.argv[1]
+    if CMD == "triangle":
+        topology = Star(simulate=False, nnodes=3)
+        allvariants = topology.runall("3node.data")
 
-    topology = Star(simulate=False)
-    # topology.createtopologyplot(stardrw)
-    run(topology, "star")
+        # profit is everywhere equal -> look for min capital
+        bestnode, cap, ch, txs = min(allvariants, key=lambda x: x[1])
+        print("node: {}, cap: {}, channel: {}, txs: {}".format(bestnode, cap, ch, txs))
 
-    topology = BinaryTree(simulate=False)
-    # topology.createtopologyplot(binarytreedrw)
-    run(topology, "binarytree")
+        for v in allvariants:
+            node, cap, ch, txs = v
+            if node != bestnode:
+                node = ""
+            scatter(cap, ch, txs, node, (an, an))
 
-    topology = Ring(simulate=False)
-    # topology.createtopologyplot(ringdrw)
-    run(topology, "ring")
 
-    # search for a better random spanning tree
-    randomspt = RandomSpanningTree(simulate=False)
+    elif CMD == "star":
+        topology = Star(simulate=False)
+        allvariants = topology.runall(tnxfile)
 
-    randomsptdata = "spanningtree.data"
-    exists = os.path.isfile(randomsptdata)
-    if exists:
-        header = randomspt.load(randomsptdata)
-        bestcapital = float(header[0])
-        bestcapitalfees = float(header[1])
-        bestcapitalchan = float(header[2])
-        bestcapitaltxs = float(header[3])
-        bestcapitalON = float(header[4])
-        bestcapitalfeesON = float(header[5])
-        bestcapitalchanON = float(header[6])
-        bestcapitaltxsON = float(header[7])
-    else:
+        # profit is everywhere equal -> look for min capital
+        bestnode, cap, ch, txs = min(allvariants, key=lambda x: x[1])
+        print("node: {}, cap: {}, channel: {}, txs: {}".format(bestnode, cap, ch, txs))
+
+        for v in allvariants:
+            node, cap, ch, txs = v
+            if node != bestnode:
+                node = ""
+            scatter(cap, ch, txs, node, (an, an))
+
+    elif CMD == "randomtree":
+        bestrandomtree = "bestrandomtree.data"
+        topology = RandomSpanningTree(simulate=False)
+
         bestcapital = sys.maxsize
-        bestcapitalON = sys.maxsize
 
-    for i in range(50):
-        randomspt.recreate()
-        (rstcap, rstchan, txs) = randomspt.run(tnxfile)
+        exists = os.path.isfile(bestrandomtree)
+        if exists:
+            header = topology.load(bestrandomtree)
+            bestcapital = float(header[0])
 
-        rstchanON = rstchan
-        if rstcap/txs < bestcapital:
-            bestcapital = rstcap/txs
-            bestcapitalfees = rstchan * fees/txs
-            bestcapitalchan = rstchan
-            bestcapitaltxs = txs
-            (rstcapON, rstchanON, txsON) = randomspt.run(tnxfile, online=True)
-            bestcapitalON = rstcapON/txsON
-            bestcapitalfeesON = rstchanON * fees/txsON
-            bestcapitalchanON = rstchanON
-            bestcapitaltxsON = txsON
-            randomspt.save(randomsptdata, [bestcapital, bestcapitalfees, bestcapitalchan, bestcapitaltxs,
-                bestcapitalON, bestcapitalfeesON, bestcapitalchanON, bestcapitaltxsON])
-            # randomspt.createtopologyplot(randomsptdrw)
 
-    output("offline", bestcapital, bestcapitalchan, bestcapitaltxs)
-    output("online", bestcapitalON, bestcapitalchanON, bestcapitaltxsON)
-    plt.scatter(bestcapitalfees, bestcapital, c='b', zorder=1000)
-    plt.scatter(bestcapitalfeesON, bestcapitalON, c='g', zorder=1000)
-    plt.annotate("randomspt", (bestcapitalfees, bestcapital), zorder=1001)
-    plt.annotate("randomspt", (bestcapitalfeesON, bestcapitalON), zorder=1001)
+        i = 100000
+        while i > 0:
+            topology.recreate()
+            cap, ch, txs = topology.run(tnxfile)
+            scatter(cap, ch, txs, "", (an, an))
+            i -= 1
+            if i % 100 == 0:
+                print(i)
+            if cap <  bestcapital:
+                bestcapital = cap
+                topology.save(bestrandomtree, [bestcapital])
+                print("Minimum needed capital: {}".format(bestcapital))
 
-    print("Optimal level: {}, transactions: {}".format(optimalcap, optimaltxs))
-    plt.plot(np.linspace(0, 100, num=20), [optimalcap] * 20, c='r', zorder=1000)
-    plt.annotate("optimal", (0, optimalcap), color='r', zorder=1001)
+    elif CMD == "all":
+
+        fullmesh = FullMesh(simulate=False)
+        (fmcap, fmchan,optimaltxs) = fullmesh.run(tnxfile, online=False)
+        optimalcap = fmcap / optimaltxs
+
+        topology = Star(simulate=False)
+        # topology.createtopologyplot(stardrw)
+        run(topology, "star")
+
+        topology = BinaryTree(simulate=False)
+        # topology.createtopologyplot(binarytreedrw)
+        run(topology, "binarytree")
+
+        topology = Ring(simulate=False)
+        # topology.createtopologyplot(ringdrw)
+        run(topology, "ring")
+
+        # search for a better random spanning tree
+        randomspt = RandomSpanningTree(simulate=False)
+
+        randomsptdata = "spanningtree.data"
+        exists = os.path.isfile(randomsptdata)
+        if exists:
+            header = randomspt.load(randomsptdata)
+            bestcapital = float(header[0])
+            bestcapitalprofit = float(header[1])
+            bestcapitalchan = float(header[2])
+            bestcapitaltxs = float(header[3])
+            bestcapitalON = float(header[4])
+            bestcapitalprofitON = float(header[5])
+            bestcapitalchanON = float(header[6])
+            bestcapitaltxsON = float(header[7])
+        else:
+            bestcapital = sys.maxsize
+            bestcapitalON = sys.maxsize
+
+        for i in range(50):
+            randomspt.recreate()
+            (rstcap, rstchan, txs) = randomspt.run(tnxfile)
+
+            rstchanON = rstchan
+            if rstcap/txs < bestcapital:
+                bestcapital = rstcap / txs
+                bestcapitalprofit = (txs * fees - rstchan * costs) / txs
+                bestcapitalchan = rstchan
+                bestcapitaltxs = txs
+                (rstcapON, rstchanON, txsON) = randomspt.run(tnxfile, online=True)
+                bestcapitalON = rstcapON / txsON
+                bestcapitalprofitON = (txsON * fees - rstchanON * costs) / txsON
+                bestcapitalchanON = rstchanON
+                bestcapitaltxsON = txsON
+                randomspt.save(randomsptdata, [bestcapital, bestcapitalprofit, bestcapitalchan, bestcapitaltxs,
+                    bestcapitalON, bestcapitalprofitON, bestcapitalchanON, bestcapitaltxsON])
+                # randomspt.createtopologyplot(randomsptdrw)
+
+        p = output("offline", bestcapital, bestcapitalchan*bestcapitaltxs, bestcapitaltxs)
+        pON = output("online", bestcapitalON, bestcapitalchanON*bestcapitaltxsON, bestcapitaltxsON)
+        plt.scatter(bestcapital, bestcapitalprofit, c='b', zorder=1000)
+        # plt.scatter(bestcapitalON, bestcapitalprofitON, c='g', zorder=1000)
+        plt.annotate("randomspt", (bestcapital+an, bestcapitalprofit+an), zorder=1001)
+        # plt.annotate("randomspt", (bestcapitalON+an, bestcapitalprofitON+an) , zorder=1001)
+
+        # print("Optimal level: {}, transactions: {}".format(optimalcap, optimaltxs))
+        # plt.plot(np.linspace(0, 100, num=20), [optimalcap] * 20, c='r', zorder=1000)
+        # plt.annotate("optimal", (0, optimalcap), color='r', zorder=1001)
+    else:
+        print("Not found: {}".format(CMD))
+        exit()
 
     plt.show()

@@ -3,11 +3,12 @@
 import csv
 from random import SystemRandom
 
-N_NODES = 30
-N_TXS = 1000
+N_NODES = 3
+N_TXS = 30
 AMOUNT_MIN = 1
-AMOUNT_MAX = 1000
-FILE = "randomtxs1000.data"
+AMOUNT_MAX = 10
+FILE = "3node.data"
+# FILE = "randomtxs1000.data"
 _sysrand = SystemRandom()
 
 
