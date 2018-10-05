@@ -212,8 +212,8 @@ if __name__ == "__main__":
         (capON, chanON, txs) = topology.run(tnxfile, online=True)
         output("online", capON, chanON, txs)
 
-        scatter(cap, p, txs, name, (an, an))
-        # scatter(capON, pON, txs, name, (an, an), c='g')
+        scatter(cap, chan, txs, name, (an, an))
+        # scatter(capON, chanON, txs, name, (an, an), c='g')
 
 
     plt.clf()
@@ -229,13 +229,15 @@ if __name__ == "__main__":
 
         # profit is everywhere equal -> look for min capital
         bestnode, cap, ch, txs = min(allvariants, key=lambda x: x[1])
-        print("node: {}, cap: {}, channel: {}, txs: {}".format(bestnode, cap, ch, txs))
+        print("bestnode: {}, cap: {}, channel: {}, txs: {}".format(bestnode, cap, ch, txs))
 
         for v in allvariants:
             node, cap, ch, txs = v
+            print("node: {}, cap: {}, channel: {}, txs: {}".format(node, cap, ch, txs))
             if node != bestnode:
                 node = ""
             scatter(cap, ch, txs, node, (an, an))
+
 
 
     elif CMD == "star":
@@ -252,6 +254,8 @@ if __name__ == "__main__":
                 node = ""
             scatter(cap, ch, txs, node, (an, an))
 
+        plt.title("Best star")
+
     elif CMD == "randomtree":
         bestrandomtree = "bestrandomtree.data"
         topology = RandomSpanningTree(simulate=False)
@@ -262,9 +266,10 @@ if __name__ == "__main__":
         if exists:
             header = topology.load(bestrandomtree)
             bestcapital = float(header[0])
+            print("Minimum needed capital: {}".format(bestcapital))
 
 
-        i = 100000
+        i = 10
         while i > 0:
             topology.recreate()
             cap, ch, txs = topology.run(tnxfile)
@@ -343,6 +348,7 @@ if __name__ == "__main__":
         # print("Optimal level: {}, transactions: {}".format(optimalcap, optimaltxs))
         # plt.plot(np.linspace(0, 100, num=20), [optimalcap] * 20, c='r', zorder=1000)
         # plt.annotate("optimal", (0, optimalcap), color='r', zorder=1001)
+        plt.title("Topology comparison")
     else:
         print("Not found: {}".format(CMD))
         exit()
