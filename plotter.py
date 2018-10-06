@@ -75,11 +75,11 @@ class Plotter():
         return (x, y)
 
 
-def plotgraph(edges, nnodes, savefilename=None):
+def plotgraph(edges, nodes, savefilename=None):
     G_1 = nx.Graph()
     G_1.add_edges_from(edges)
     pos = {i:(random.randint(0,50),
-              random.randint(0,100)) for i in range(nnodes)}
+              random.randint(0,100)) for i in nodes}
 
     import warnings
     import matplotlib.cbook

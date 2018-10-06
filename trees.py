@@ -102,11 +102,41 @@ def loadtree(filname):
 
 class Tree(Executor):
 
-    def settree(self, T, nnodes):
-        super().__init__(nnodes=nnodes)
-        self.channels = T
+    def settree(self, E, nnodes=None, nodes=None):
+        super().__init__(nnodes=nnodes, nodes=nodes)
+        self.channels = E
         self.createroutetable()
 
+def parse(para, opt):
+    if len(sys.argv) not in range(len(para)+2, len(para+opt)+3):
+        print("Pass parameters: {}, options: {}".format(para,opt))
+        print("exit"), exit()
+
+    a1 = int(sys.argv[2])
+    a2 = int(sys.argv[3])
+    a3 = int(sys.argv[4])
+    a4 = int(sys.argv[5])
+
+    try:
+        a5 = sys.argv[6]
+    except IndexError:
+        a5 = None
+
+    return a1, a2, a3, a4, a5
+
+def getmapping(nodes):
+    mapping = [[],[]]
+    for i,n in enumerate(nodes):
+        mapping[0].append("n{}".format(i))
+        mapping[1].append("n{}".format(n))
+
+    return mapping
+
+def rename(tree, mapping):
+    for e in tree:
+        for i,x in enumerate(e[0:2],0):
+            index = mapping[0].index(x)
+            e[i] = mapping[1][index]
 
 if __name__ == '__main__':
     args = ["create", "run"]
@@ -126,36 +156,41 @@ if __name__ == '__main__':
             print("Pass options: {}".format(opt))
             print("exit"), exit()
 
-        N_NODES = int(sys.argv[2])
-        treedata = TRE_DIR + "trees_{}n.data".format(N_NODES)
-        createtrees(N_NODES, treedata)
+        nnodes = int(sys.argv[2])
+        treedata = TRE_DIR + "trees_{}n.data".format(nnodes)
+        createtrees(nnodes, treedata)
 
     elif CMD == "run":
-        opt = ["<number of nodes>", "<number of transactions>",
+        para = ["<number of nodes>", "<number of transactions>",
                 "<starting set>", "<ending set>"]
-        if len(sys.argv) != len(opt) + 2:
-            print("Pass options: {}".format(opt))
-            print("exit"), exit()
+        opt = ["<removed nodes>"]
 
-        N_NODES = int(sys.argv[2])
-        N_TXS = int(sys.argv[3])
-        setindexstart = int(sys.argv[4])
-        setindexend = int(sys.argv[5])
+        nnodes,ntxs,setstart,setend,rmd = parse(para, opt)
 
-        for s in range(setindexstart, setindexend+1):
-            SET = s
-            print("## SET {} ##".format(SET))
+        specadd = ""
+        mapping = None
+        if rmd != None:
+            rmd = re.findall(r'\d+', rmd)
+            rmd = [int(x) for x in rmd]   
+            specadd = "_rmd{}".format(rmd)
+            nodes = [n for n in range(nnodes) if n not in rmd]
+            mapping = getmapping(nodes)
 
-            tnxfile = TXS_DIR + "randomtxs_{}n_{}txs_set{}.data".format(
-                N_NODES,N_TXS,SET)
-            treedata = TRE_DIR + "trees_{}n.data".format(N_NODES)
-            resultdata = RES_DIR + "result_{}n_{}txs_set{}.data".format(
-                N_NODES,N_TXS,SET)
+        for s in range(setstart, setend+1):
+            print("## SET {} ##".format(s))
+
+            spec = "{}n_{}txs_set{}".format(nnodes,ntxs,s)
+            spec += specadd
+
+            nnodes = nnodes - len(rmd)
+            treedata = TRE_DIR + "trees_{}n.data".format(nnodes)
+            tnxfile = TXS_DIR + "randomtxs_"+ spec +".data"
+            resultdata = RES_DIR + "result_"+ spec +".data"
 
             capital = list()
             tree = Tree()
             lt = loadtree(treedata)
-            numberoftrees = math.pow(N_NODES, N_NODES-2)
+            numberoftrees = math.pow(nnodes, nnodes-2)
 
             start = time()
 
@@ -171,14 +206,20 @@ if __name__ == '__main__':
                 except StopIteration:
                     break
 
-                tree.settree(t, N_NODES)
+                if mapping != None:
+                    rename(t,mapping)
+                    tree.settree(t, nodes=mapping[1])
+                else:
+                    tree.settree(t, nnodes=nnodes)
+
                 cap, chan, txs = tree.run(tnxfile)
                 capital.append((cap,index))
 
                 if index % int(percstep*numberoftrees/100) == 0:
                     print("{} %".format(percstep * \
-                        int(100*index/numberoftrees/percstep + 0.5)))
+                        int(100*index/numberoftrees/percstep + 0.5)), end=".. ")
                 index += 1
+            print("")
 
             end = time()
 
@@ -200,25 +241,31 @@ if __name__ == '__main__':
             ff.writefile(resultdata, output)
 
     elif CMD == "plot":
-        opt = ["<number of nodes>", "<number of transactions>",
+        para = ["<number of nodes>", "<number of transactions>",
                 "<starting set>", "<ending set>"]
-        if len(sys.argv) != len(opt) + 2:
-            print("Pass options: {}".format(opt))
-            print("exit"), exit()
-        
-        N_NODES = int(sys.argv[2])
-        N_TXS = int(sys.argv[3])
-        setindexstart = int(sys.argv[4])
-        setindexend = int(sys.argv[5])
+        opt = ["<removed nodes>"]
 
-        for s in range(setindexstart, setindexend+1):
-            SET = s
+        nnodes,ntxs,setstart,setend,rmd = parse(para, opt)
 
-            treedata = TRE_DIR + "trees_{}n.data".format(N_NODES)
-            resultdata = RES_DIR + "result_{}n_{}txs_set{}.data".format(
-                N_NODES,N_TXS,SET)
-            resultgraph = RES_DIR + "result_{}n_{}txs_set{}".format(
-                N_NODES,N_TXS,SET) + "_graph_{}.png"
+        specadd = ""
+        mapping = None
+        if rmd != None:
+            rmd = re.findall(r'\d+', rmd)
+            rmd = [int(x) for x in rmd]   
+            specadd = "_rmd{}".format(rmd)
+            nodes = [n for n in range(nnodes) if n not in rmd]
+            mapping = getmapping(nodes)
+        else:
+            nodes = range(nnodes)
+
+        for s in range(setstart, setend+1):
+            spec = "{}n_{}txs_set{}".format(nnodes,ntxs,s)
+            spec += specadd
+
+            nnodes = nnodes - len(rmd)
+            treedata = TRE_DIR + "trees_{}n.data".format(nnodes)
+            resultdata = RES_DIR + "result_"+ spec +".data"
+            resultgraph = RES_DIR + "result_"+ spec +"_graph_{}.png"
 
             find = "optimal trees: "
             pos, line = ff.searchinfile(resultdata, find)
@@ -233,14 +280,17 @@ if __name__ == '__main__':
                 
                 t = ff.readfileatuntil(treedata, pos, "tree {} end".format(tn), 
                     delimiter=" ")
+
+                if mapping != None:
+                    rename(t,mapping)
                 
                 edges = [[int(x[0].replace('n','')),int(x[1].replace('n',''))] \
                     for x in t]
 
                 edges = [x for i,x in enumerate(edges,0) if i % 2 == 0 ]
 
-                plotter.plotgraph(edges, N_NODES, 
+                plotter.plotgraph(edges, nodes, 
                     savefilename=resultgraph.format(tn))
 
     else:
-        print("{} unknown".format(CMD))
+        print("{} unknown. Allowed args: {}".format(CMD, args))

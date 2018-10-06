@@ -6,9 +6,9 @@ import math
 # import numpy as np
 
 from network import Network
-from genrandomtxs import readfile as readtxsdata
-from genrandomtxs import writefile
-from genrandomtxs import readfile
+from filefunctions import readfile as readtxsdata
+from filefunctions import writefile
+from filefunctions import readfile
 
 
 class Executor(Network):
@@ -16,8 +16,7 @@ class Executor(Network):
     # add rout table to network:
     # {n1: {channels: [{n2:dkkd, id:2943}],
     #       routetable: [{dest:dkjf, sendto:kdjlf}]}
-
-    def __init__(self, simulate=False, nnodes=None):
+    def __init__(self, simulate=False, nnodes=None, nodes=None):
         self.simulate = simulate
         # [[src, target, capital, max capital, open channels], [], ..]
         self.channels = list()
@@ -31,6 +30,10 @@ class Executor(Network):
 
         if self.simulate:
             super().__init__(self.N_NODES)
+        elif nodes != None:
+            self.nodes = nodes
+            for n in self.nodes:
+                self.network[n] = {'channels': []}
         else:
             for n in range(self.N_NODES):
                 name = "n{}".format(n)

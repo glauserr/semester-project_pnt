@@ -7,8 +7,8 @@ from random import SystemRandom
 import matplotlib.pyplot as plt
 import numpy as np
 
-from genrandomtxs import writefile
-from genrandomtxs import readfile
+from filefunctions import writefile
+from filefunctions import readfile
 
 from executor import Executor
 from plotter import Plotter
