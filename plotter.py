@@ -2,6 +2,8 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+import networkx as nx
+import random
 
 class Plotter():
 
@@ -72,44 +74,21 @@ class Plotter():
 
         return (x, y)
 
-    # def createtopologyplot(self, plotname):
-    #     coordinates = (len(self.nodes),) * 2 + (0,)
-    #     plt.clf()
-    #     self.plotforwardnode(self.nodes[0], coordinates, self.nodes[0], 0)
-    #     plt.savefig(plotname)
 
-    # def plotforwardnode(self, sender, coordinates, receiver, count):
-    #     xzero, yzero, anglesender = coordinates
-    #     neighbors = self.getneighbors(receiver)
+def plotgraph(edges, nnodes, savefilename=None):
+    G_1 = nx.Graph()
+    G_1.add_edges_from(edges)
+    pos = {i:(random.randint(0,50),
+              random.randint(0,100)) for i in range(nnodes)}
 
-    #     if sender in neighbors:  # sender != receiver
-    #         neighbors.remove(sender)
-    #     else:
-    #         self.passednodes = [receiver]
-    #         plt.scatter(xzero, yzero)
-    #         plt.annotate(sender, (xzero, yzero))
-    #         plt.axis('equal')
-
-    #     if len(neighbors) < 20:
-    #         angledelta = math.pi / 10
-    #     else:
-    #         angledelta = 2 * math.pi / len(neighbors)
-    #     sign = math.pow((-1), count)
-    #     count += 1
-
-    #     for i, n in enumerate(neighbors, 1):
-    #         angle = anglesender + sign * i*angledelta
-
-    #         x = xzero + math.cos(angle)
-    #         y = yzero + math.sin(angle)
-    #         xline = np.linspace(xzero, x, num=20)
-    #         yline = np.linspace(yzero, y, num=20)
-    #         plt.plot(xline, yline, c='g')
-    #         plt.scatter(x, y, c='b', zorder=1000)
-    #         plt.annotate(n, (x, y), zorder=1001)
-
-    #         if n in self.passednodes:
-    #             return
-
-    #         self.plotforwardnode(receiver, (x, y, angle), n, count)
-    #         self.passednodes.append(n)
+    import warnings
+    import matplotlib.cbook
+    warnings.filterwarnings("ignore",category=matplotlib.cbook.mplDeprecation)
+    
+    plt.figure()
+    nx.draw_networkx(G_1, pos, edge_labels=True)
+    
+    if savefilename != None:
+        plt.savefig(savefilename)
+    else:
+        plt.show()

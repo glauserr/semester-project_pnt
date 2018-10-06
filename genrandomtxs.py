@@ -1,32 +1,25 @@
 #!/bin/python3
 
-import csv
-from random import SystemRandom
+import sys
 
-N_NODES = 3
-N_TXS = 30
+from random import SystemRandom
+from filefunctions import writefile
+from filefunctions import readfile
+
+N_NODES = 6
+N_TXS = 100
+SET = 1
 AMOUNT_MIN = 1
-AMOUNT_MAX = 10
-FILE = "3node.data"
-# FILE = "randomtxs1000.data"
+AMOUNT_MAX = 100
+FILE = "transaction_sets/randomtxs_{}n_{}txs_set{}.data".format(N_NODES,
+    N_TXS,SET)
+
 _sysrand = SystemRandom()
 
-
-def writefile(csvfile, list):
-    with open(csvfile, "w") as output:
-        writer = csv.writer(output, delimiter=' ')
-        for val in list:
-            writer.writerow(val)
-
-
-def readfile(csvfile):
-    retVal = list()
-    with open(csvfile, "r") as csvfile:
-        reader = csv.reader(csvfile, delimiter=' ')
-        for row in reader:
-            retVal.append(row)
-    return retVal
-
+def setfile():
+    global FILE
+    FILE = "transaction_sets/randomtxs_{}n_{}txs_set{}.data".format(N_NODES,
+        N_TXS,SET)
 
 def randomtx():
     repeat = True
@@ -63,5 +56,20 @@ def createrandomtxs():
 
 
 if __name__ == "__main__":
-    createrandomtxs()
-    # print(readfile(FILE))
+
+    if len(sys.argv) == 5:
+        N_NODES = int(sys.argv[1])
+        N_TXS = int(sys.argv[2])
+        setindexstart = int(sys.argv[3])
+        setindexend = int(sys.argv[4])
+
+        for s in range(setindexstart, setindexend+1):
+            SET = s
+            setfile()
+            createrandomtxs()
+
+    elif len(sys.argv) == 1:
+        createrandomtxs()
+
+    else:
+        print("Invalid arguments: {}".format(sys.argv[1:]))

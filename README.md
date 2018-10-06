@@ -9,6 +9,7 @@ SETUP:
 	4. install python modules: 
 		$ pip3 install shellfuncs
 		$ pip3 install matplotlib
+		$ pip3 install networkx
 
 	5. packages:
 	sudo apt-get install python3-tk

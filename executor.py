@@ -17,7 +17,7 @@ class Executor(Network):
     # {n1: {channels: [{n2:dkkd, id:2943}],
     #       routetable: [{dest:dkjf, sendto:kdjlf}]}
 
-    def __init__(self, simulate=True, nnodes=None):
+    def __init__(self, simulate=False, nnodes=None):
         self.simulate = simulate
         # [[src, target, capital, max capital, open channels], [], ..]
         self.channels = list()

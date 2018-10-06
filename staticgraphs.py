@@ -175,14 +175,18 @@ class FullMesh(Executor, Plotter):
     # topology.createtopologyplot("test.png", show=True)
 
 if __name__ == "__main__":
+    TXS_DIR = "transaction_sets/"
+    N_NODES = 30
+    N_TXS = 1000
+    SET = 1
 
     fees = 1 # fees for transaction
     costs = 1 # cost to set up a channel
 
     an = 0.0005
 
-
-    tnxfile = "randomtxs1000.data"
+    tnxfile = TXS_DIR + "randomtxs_{}n_{}txs_set{}.data".format(
+        N_NODES,N_TXS,SET)
 
     fmdrw = "topology_fullmesh.png"
     stardrw = "topology_star.png"
