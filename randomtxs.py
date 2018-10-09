@@ -81,7 +81,7 @@ def parse(para, opt=list()):
 
 
 if __name__ == "__main__":
-    args = ["create", "reduce"]
+    args = ["create", "remove"]
 
     if len(sys.argv) < 2:
         print("Pass an argument: {}".format(args))
@@ -94,9 +94,9 @@ if __name__ == "__main__":
                 "<starting set>", "<ending set>"]
 
         if len(sys.argv) == len(para) + 2:
-            N_NODES,N_TXS,setstart,setend = parse(para)
+            N_NODES,N_TXS,setstart,setend,rmd = parse(para)
 
-            for s in range(setindexstart, setindexend+1):
+            for s in range(setstart, setend+1):
                 SET = s
                 FILE = TXS_DIR + "randomtxs_{}n_{}txs_set{}.data".format(N_NODES,
                     N_TXS,SET)

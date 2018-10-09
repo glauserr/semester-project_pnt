@@ -1,15 +1,17 @@
 #!/bin/python3
 
+import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
 from time import sleep
+from random import SystemRandom
 
 from staticgraphs import Executor
-from plotter import Plotter
+import plotter as plotter
 
 
-class DynamicTree(Executor, Plotter):
+class DynamicTree(Executor):
     # { 'node left-node right': {node1: [], node1: []},  ... }
     statetables = []
 
@@ -110,7 +112,16 @@ class DynamicTree(Executor, Plotter):
             self.channels[index1][4] = 1
             self.channels[index2][4] = 1
 
-        self.createtopologyplot("dynamicTree.png", show=False)
+
+        edges = [[int(x[0].replace('n','')),int(x[1].replace('n',''))] \
+            for x in self.channels]
+
+        edges = [x for i,x in enumerate(edges,0) if i % 2 == 0 ]
+
+
+        # self.createtopologyplot("dynamicTree.png", show=False)
+        plotter.plotgraph(edges, self.nodes, "dynamicTree.png")
+
 
     def getneededcapital(self, table):
         C1 = 0
@@ -150,7 +161,7 @@ class DynamicTree(Executor, Plotter):
             table[ri][i] += ai
 
 
-class CapitalVisualization(Executor, Plotter):
+class CapitalVisualization(Executor):
     def __init__(self, simulate=False, nnodes=None):
         super().__init__(simulate,nnodes)
         # self.create()
@@ -279,44 +290,258 @@ class CapitalVisualization(Executor, Plotter):
         plt.show()
 
 
+class TreeReduction(Executor):
+    def __init__(self, nnodes):
+        self.V, E = self.getrandomtree(nnodes)
+        self.E = [x + [0] for x in E]
+        self.E = [[0, 1, 0], [0, 3, 0], [2, 3, 0]] ### REMOVE
+        super().__init__(simulate=False, nodes=[str(x) for x in self.V])
+
+    def getrandomtree(self, nnodes):
+        V = list(range(nnodes))
+        E = []
+        treeset = []  # spanning tree set
+        nodeset = V.copy()
+
+        _sysrand = SystemRandom()
+
+        while len(nodeset) > 0:
+            i = _sysrand.randint(0, len(nodeset) - 1)
+            node = nodeset[i]
+
+            if len(treeset) > 0:
+                i = _sysrand.randint(0, len(treeset) - 1)
+                treenode = treeset[i]
+
+                if treenode < node:
+                    E.append([treenode, node]) 
+                else: 
+                    E.append([node, treenode])
+
+            nodeset.remove(node)
+            treeset.append(node)
+
+        return V, E
+    
+    def getneighborhood(self, edges, node):
+        neighbors = [e[1] for e in edges if e[0] == node]
+        return neighbors + [e[0] for e in edges if e[1] == node]
+
+    def getedges(self, edges, node):
+        return [e for e in edges if e[0] == node or e[1] == node]
+
+    def getsubgraphs(self, edges, node1, node2):
+        def edgeforwarding(E,V,usededge, passednode):
+            v = self.getneighborhood([usededge], passednode)
+            es = self.getedges(edges, v[0])
+            
+            V.append(v[0])
+            E.append(usededge)
+
+            if len(es) == 0:
+                print("Error at getsubgraphs")
+                print("exit")
+                exit()
+            else:
+                es.remove(usededge)
+                for e in es:
+                    edgeforwarding(E,V, e, v[0])
+
+        E1 = []
+        V1 = [node1]
+        for edge in self.getedges(edges, node1):
+            edgeforwarding(E1, V1, edge, node1)
+        E2 = []
+        V2 = [node2]
+        for edge in self.getedges(edges, node2):
+            edgeforwarding(E2, V2, edge, node2)
+
+        return ((V1,E1),(V2,E2))
+
+    def unmakrededgeexists(self):
+        return min(self.E, key=lambda x: x[2])[2] == 0
+
+    def getunmarkededges(self):
+        return [e for e in self.E if e[2] == 0]
+
+    def markedge(self, edge):
+        edge[2] = 1
+
+    def unmarkalledges(self):
+        for e in self.E:
+            e[2] = 0
+
+    def getcapital(self, edges, txsfile):
+        # sender, receiver, capital, maxcapital, open channels
+        self.channels = [[str(x[0]), str(x[1]), 0, 0 ,0] for x in edges]
+        self.channels += [[str(x[1]), str(x[0]), 0, 0 ,0] for x in edges]
+        self.createroutetable()
+        C, ch, txs = self.run(txsfile)
+        return C
+
+    def getoptimalgraph(self, txsfile):
+        C = self.getcapital(self.E, txsfile)
+        newedge = None
+
+        _sysrand = SystemRandom()
+
+        print(self.unmakrededgeexists())
+        while self.unmakrededgeexists():
+            print(self.E)
+            unmarkededges = self.getunmarkededges()
+            while 1: 
+                ir = _sysrand.randint(0, len(unmarkededges)-1)
+                ir = 0 ### REMOVE
+                er = unmarkededges[ir]
+                if er != newedge:
+                    break;   
+            self.E.remove(er)
+            ((V1,E1), (V2,E2)) = self.getsubgraphs(self.E, er[0], er[1]) 
+            print(V1)
+            print(V2)
+            newedge = er
+            print("e random: {}".format(er))
+            connectingedges = []
+            for v1 in V1:
+                for v2 in V2:
+                    if v1 < v2:
+                        connectingedges.append([v1,v2,0])
+                    else:
+                        connectingedges.append([v2,v1,0])
+
+            connectingedges.remove(er)
+            print("conn: {}".format(connectingedges))
+
+            for e in connectingedges:
+                print("e: {}".format(e))
+                print(self.E + [e])
+                capital = self.getcapital(self.E + [e], txsfile)
+                print(capital)
+                if capital < C:
+                    C = capital
+                    newedge = e
+
+            self.E += [newedge]
+
+            if newedge == er:
+                print("newedge: {}".format(newedge))
+                self.markedge(newedge)
+            else:
+                print("unmarkall")
+                self.unmarkalledges()
+
+        print("Capital of the optimal graph: {}".format(C))
+        plotter.plotgraph([[e[0],e[1]] for e in self.E], self.V)
+
+    def executetxs(self, txs):
+        self.ntxs = 0
+        for src, dest, amount in txs:
+            self.calccapital(src, dest, amount)
+            self.ntxs += 1
+
+def parse(para, opt):
+    if len(sys.argv) not in range(len(para)+2, len(para+opt)+3):
+        print("Pass parameters: {}, options: {}".format(para,opt))
+        print("exit"), exit()
+
+    a1 = int(sys.argv[2])
+    a2 = int(sys.argv[3])
+    a3 = int(sys.argv[4])
+    a4 = int(sys.argv[5])
+
+    try:
+        a5 = sys.argv[6]
+    except IndexError:
+        a5 = []
+
+    return a1, a2, a3, a4, a5
+
+
 if __name__ == "__main__":
+    args = ["dtree", "rtree"]
+    if len(sys.argv) < 2:
+        print("Pass an argument: {}".format(args))
+        print("exit"), exit()
+
     TXS_DIR = "transaction_sets/"
-    N_NODES = 30
-    N_TXS = 1000
-    SET = 1
+    RES_DIR = "results/"
+    TRE_DIR = "trees/"
 
-    fees = 1 # fees for transaction
-    costs = 1 # cost to set up a channel
-    tnxfile = TXS_DIR + "randomtxs_{}n_{}txs_set{}.data".format(
-        N_NODES,N_TXS,SET)
+    CMD = sys.argv[1]
 
-    def output(msg, capital, channels, txs):
-        profit = (txs * fees - channels * costs) / txs
-        capital = capital / txs
-        print("[{}]: profit per Txs: {}, capital per Txs: {}, (channels: {}, txs: {})".format(
-            msg, profit, capital, channels, txs))
-        return profit
+    if CMD == "dtree":
+        TXS_DIR = "transaction_sets/"
+        N_NODES = 30
+        N_TXS = 1000
+        SET = 1
 
-    def scatter(capital, channels, txs, name, namepos, c='b'):
-        profit = (txs * fees - channels * costs) / txs
-        capital = capital / txs
-        x, y = namepos
-        plt.scatter(capital, profit, c=c, zorder=1000)
-        plt.annotate(name, (capital+x, profit+y), zorder=1001)
+        fees = 1 # fees for transaction
+        costs = 1 # cost to set up a channel
+        tnxfile = TXS_DIR + "randomtxs_{}n_{}txs_set{}.data".format(
+            N_NODES,N_TXS,SET)
 
-    topology = DynamicTree()
-    cap, chan, txs = topology.run(tnxfile)
+        def output(msg, capital, channels, txs):
+            profit = (txs * fees - channels * costs) / txs
+            capital = capital / txs
+            print("[{}]: profit per Txs: {}, capital per Txs: {}, (channels: {}, txs: {})".format(
+                msg, profit, capital, channels, txs))
+            return profit
 
-    plt.clf()
-    plt.xlabel("Needed capital / transactions")
-    plt.ylabel("Profit / transactions")
-    plt.axis([180, 500, 0.92, 1])
-    plt.grid(True)
+        def scatter(capital, channels, txs, name, namepos, c='b'):
+            profit = (txs * fees - channels * costs) / txs
+            capital = capital / txs
+            x, y = namepos
+            plt.scatter(capital, profit, c=c, zorder=1000)
+            plt.annotate(name, (capital+x, profit+y), zorder=1001)
 
-    scatter(cap, chan, txs, "max payment based", (1, 0.01))
-    output("offline", cap, chan, txs)
-    plt.title("Max payment based topology design")
-    plt.show()
+        topology = DynamicTree()
+        cap, chan, txs = topology.run(tnxfile)
 
-    # topology = CapitalVisualization(nnodes=3)
-    # cap, chan, txs = topology.run("3node.data")
+        plt.clf()
+        plt.xlabel("Needed capital / transactions")
+        plt.ylabel("Profit / transactions")
+        plt.axis([180, 500, 0.92, 1])
+        plt.grid(True)
+
+        scatter(cap, chan, txs, "max payment based", (1, 0.01))
+        output("offline", cap, chan, txs)
+        plt.title("Max payment based topology design")
+        plt.show()
+
+        # topology = CapitalVisualization(nnodes=3)
+        # cap, chan, txs = topology.run("3node.data")
+    
+    elif CMD == "rtree":
+        para = ["<number of nodes>", "<number of transactions>",
+                "<starting set>", "<ending set>"]
+        opt = ["<removed nodes>"]
+
+        nnodes,ntxs,setstart,setend,rmd = parse(para, opt)
+
+        specadd = ""
+        mapping = None
+        if rmd != []:
+            print("Error")
+            # rmd = re.findall(r'\d+', rmd)
+            # rmd = [int(x) for x in rmd]   
+            # specadd = "_rmd{}".format(rmd)
+            # nodes = [n for n in range(nnodes) if n not in rmd]
+            # mapping = getmapping(nodes)
+        else:
+            nodes = range(nnodes)
+
+        for s in range(setstart, setend+1):
+            spec = "{}n_{}txs_set{}".format(nnodes,ntxs,s)
+            spec += specadd
+
+            nnodes = nnodes - len(rmd)
+            tnxfile = TXS_DIR + "randomtxs_"+ spec +".data"
+            # treedata = TRE_DIR + "trees_{}n.data".format(nnodes)
+            # resultdata = RES_DIR + "result_"+ spec +".data"
+            # resultgraph = RES_DIR + "result_"+ spec +"_graph_{}.png"
+
+            rtree = TreeReduction(nnodes)
+            rtree.getoptimalgraph(tnxfile)
+
+    else:
+        print("{} unknown. Allowed args: {}".format(CMD, args))

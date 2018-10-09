@@ -11,10 +11,10 @@ from filefunctions import writefile
 from filefunctions import readfile
 
 from executor import Executor
-from plotter import Plotter
+import plotter
 
 
-class Star(Executor, Plotter):
+class Star(Executor):
 
     def __init__(self, simulate=True, nnodes=None):
         print("creating star topology...")
@@ -51,7 +51,7 @@ class Star(Executor, Plotter):
 
         return retval
 
-class BinaryTree(Executor, Plotter):
+class BinaryTree(Executor):
 
     def __init__(self, simulate=True):
         print("creating binary tree topology...")
@@ -72,7 +72,7 @@ class BinaryTree(Executor, Plotter):
         self.createroutetable()
 
 
-class Ring(Executor, Plotter):
+class Ring(Executor):
 
     def __init__(self, simulate=True):
         print("creating ring topology...")
@@ -89,7 +89,7 @@ class Ring(Executor, Plotter):
         self.createroutetable()
 
 
-class RandomSpanningTree(Executor, Plotter):
+class RandomSpanningTree(Executor):
 
     def __init__(self, simulate=True):
         print("creating random spanning tree topology...")
@@ -137,7 +137,7 @@ class RandomSpanningTree(Executor, Plotter):
         writefile(filename, header)
 
 
-class FullMesh(Executor, Plotter):
+class FullMesh(Executor):
     def __init__(self, simulate=True):
         print("creating full-mesh topology...")
         super().__init__(simulate)
@@ -293,15 +293,12 @@ if __name__ == "__main__":
         optimalcap = fmcap / optimaltxs
 
         topology = Star(simulate=False)
-        # topology.createtopologyplot(stardrw)
         run(topology, "star")
 
         topology = BinaryTree(simulate=False)
-        # topology.createtopologyplot(binarytreedrw)
         run(topology, "binarytree")
 
         topology = Ring(simulate=False)
-        # topology.createtopologyplot(ringdrw)
         run(topology, "ring")
 
         # search for a better random spanning tree

@@ -120,7 +120,7 @@ def parse(para, opt):
     try:
         a5 = sys.argv[6]
     except IndexError:
-        a5 = None
+        a5 = []
 
     return a1, a2, a3, a4, a5
 
@@ -169,7 +169,7 @@ if __name__ == '__main__':
 
         specadd = ""
         mapping = None
-        if rmd != None:
+        if rmd != []:
             rmd = re.findall(r'\d+', rmd)
             rmd = [int(x) for x in rmd]   
             specadd = "_rmd{}".format(rmd)
@@ -249,7 +249,7 @@ if __name__ == '__main__':
 
         specadd = ""
         mapping = None
-        if rmd != None:
+        if rmd != []:
             rmd = re.findall(r'\d+', rmd)
             rmd = [int(x) for x in rmd]   
             specadd = "_rmd{}".format(rmd)

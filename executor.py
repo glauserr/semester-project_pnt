@@ -187,4 +187,7 @@ class Executor(Network):
         for neighbor in forwardto:
             self.forward(receiver, neighbor, sourcenode, hops)
 
+    def getgraph():
+        return self.nodes, self.channels
+
 
