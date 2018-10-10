@@ -4,3 +4,7 @@ __pycache__/
 log.txt
 
 *.pyc
+
+transaction_sets/
+
+results/

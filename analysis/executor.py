@@ -1,17 +1,15 @@
 #!/bin/python3
 
 import math
+import sys
+sys.path.append('../')
 
-# import matplotlib.pyplot as plt
-# import numpy as np
-
-from network import Network
 from filefunctions import readfile as readtxsdata
 from filefunctions import writefile
 from filefunctions import readfile
 
 
-class Executor(Network):
+class Executor():
     N_NODES = 30
     # add rout table to network:
     # {n1: {channels: [{n2:dkkd, id:2943}],
@@ -94,7 +92,7 @@ class Executor(Network):
 
     def calccapital(self, node, dest, amount):
         if node == dest:
-            # TODO: write to file
+            # TODO: write to filex
             # print("")
             return 0
         routetable = self.network[node]['routetable']

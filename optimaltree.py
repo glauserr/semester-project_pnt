@@ -1,72 +1,234 @@
 #!/bin/python3
 
-# Note: this does not create the optimal tree.
+# This a randomized algorithm returning the optimal tree with 
+# a probabilty p for a transaction set
 
-import sys, re
+import sys
+from time import time
+from random import SystemRandom
 
-import plotter
-import filefunctions as ff
+from capital import getcapital
 
-def getmaxflowsandnodes(txs):
-    nodes = []
-    maxflow = {} # {<edge>: [<value>, <direction>], ...}
-    currentflow = {} # {<edge>: <value>, ...}
+class OptimalTree():
+    def __init__(self, nnodes):
+        self.nnodes = nnodes
+        self._sysrand = SystemRandom()
+        self.createrandomtree()
 
-    for n1, n2, a, in txs:
-        n1 = int(n1)
-        n2 = int(n2)
-        a = int(a)
+    def createrandomtree(self):
+        self.V, E = self.getrandomtree(self.nnodes)
+        self.E = [x + [0] for x in E]
 
-        if n1 not in nodes:
-            nodes.append(n1)
-        if n2 not in nodes:
-            nodes.append(n2)
-        # always smaller node to larger node
-        if n1 > n2:
-            t = n1
-            n1 = n2
-            n2 = t
-            a = -a
+    def getrandomtree(self, nnodes):
+        V = list(range(nnodes))
+        E = []
+        treeset = []  # spanning tree set
+        nodeset = V.copy()
 
-        edge = "{}-{}".format(n1,n2)
+        while len(nodeset) > 0:
+            i = self._sysrand.randint(0, len(nodeset) - 1)
+            node = nodeset[i]
 
-        if edge not in currentflow:
-            currentflow[edge] = 0
-            maxflow[edge] = [0,0]
+            if len(treeset) > 0:
+                i = self._sysrand.randint(0, len(treeset) - 1)
+                treenode = treeset[i]
 
-        currentflow[edge] += a
+                if treenode < node:
+                    E.append([treenode, node]) 
+                else: 
+                    E.append([node, treenode])
 
-        if abs(currentflow[edge]) > maxflow[edge][0]:
-            maxflow[edge][0] = abs(currentflow[edge])
-            if a > 0:
-                maxflow[edge][1] = 1
-            else: 
-                maxflow[edge][1] = -1
+            nodeset.remove(node)
+            treeset.append(node)
 
-    return maxflow, nodes
+        return V, E
+    
+    def getneighborhood(self, edges, node):
+        neighbors = [e[1] for e in edges if e[0] == node]
+        return neighbors + [e[0] for e in edges if e[1] == node]
+
+    def getedges(self, edges, node):
+        return [e for e in edges if e[0] == node or e[1] == node]
+
+    def getsubgraphs(self, edges, node1, node2):
+        def edgeforwarding(E,V,usededge, passednode):
+            v = self.getneighborhood([usededge], passednode)
+            es = self.getedges(edges, v[0])
+            
+            V.append(v[0])
+            E.append(usededge)
+
+            if len(es) == 0:
+                print("Error at getsubgraphs")
+                print("exit")
+                exit()
+            else:
+                es.remove(usededge)
+                for e in es:
+                    edgeforwarding(E,V, e, v[0])
+
+        E1 = []
+        V1 = [node1]
+        for edge in self.getedges(edges, node1):
+            edgeforwarding(E1, V1, edge, node1)
+        E2 = []
+        V2 = [node2]
+        for edge in self.getedges(edges, node2):
+            edgeforwarding(E2, V2, edge, node2)
+
+        return ((V1,E1),(V2,E2))
+
+    def unmakrededgeexists(self):
+        return min(self.E, key=lambda x: x[2])[2] == 0
+
+    def getunmarkededges(self):
+        return [e for e in self.E if e[2] == 0]
+
+    def markedge(self, edge):
+        edge[2] = 1
+
+    def unmarkalledges(self):
+        for e in self.E:
+            e[2] = 0
+
+    # def getcapital(self, edges, txsfile):
+    #     # sender, receiver, capital, maxcapital, open channels
+
+    #     self.channels = [[str(x[0]), str(x[1]), 0, 0 ,0] for x in edges]
+    #     self.channels += [[str(x[1]), str(x[0]), 0, 0 ,0] for x in edges]
+    #     self.createroutetable()
+    #     C, ch, txs = self.run(txsfile)
+    #     return C
+
+    def isinprocessedtrees(self, treestring):
+        return treestring in self.processedtrees
+
+    def addtoprocessedtrees(self, treestring):
+        self.processedtrees.append(treestring)
+
+    def edgestostring(self, edges):
+        tree = [str(x[0]) + str(x[1]) for x in edges]
+        tree.sort()
+        return str(tree)        
+
+    def getoptimalgraph(self, txsfile, iterations=1):
+        optC = sys.maxsize
+        optE = []
+        optV = []
+        self.processedtrees =  []
+        for i in range(iterations):
+            V, E, C = self.randomizedalg(txsfile)
+            if C < optC:
+                optC = C
+                optE = E
+                optV = V
+
+        return optV, optE, optC
 
 
-def parse(para, opt):
-    if len(sys.argv) not in range(len(para)+2, len(para+opt)+3):
-        print("Pass parameters: {}, options: {}".format(para, opt))
-        print("exit"), exit()
+    def randomizedalg(self, txsfile):
+        tstart = time()
+        repeat = True
+        # while repeat:
+        self.createrandomtree()
+        treestring = self.edgestostring(self.E)
+        repeat = self.isinprocessedtrees(treestring)
 
-    a1 = int(sys.argv[2])
-    a2 = int(sys.argv[3])
-    a3 = int(sys.argv[4])
-    a4 = int(sys.argv[5])
+        self.addtoprocessedtrees(treestring)
+        C = getcapital(self.V, self.E, txsfile)
+        newedge = None
 
-    try:
-        a5 = sys.argv[6]
-    except IndexError:
-        a5 = []
+        _sysrand = SystemRandom()
+        rounds = 0
+        # print(self.unmakrededgeexists())
+        while self.unmakrededgeexists():
+            # print(self.E)
+            print(".", end="")
+            rounds += 1
+            unmarkededges = self.getunmarkededges()
+            while 1: 
+                ir = _sysrand.randint(0, len(unmarkededges)-1)
+                # ir = 0 ### REMOVE
+                er = unmarkededges[ir]
+                if er != newedge:
+                    break;   
+            self.E.remove(er)
+            ((V1,E1), (V2,E2)) = self.getsubgraphs(self.E, er[0], er[1]) 
+            # print("e random: {}".format(er))
+            # print(V1)
+            # print(V2)
+            newedge = er
+            connectingedges = []
+            for v1 in V1:
+                for v2 in V2:
+                    if v1 < v2:
+                        connectingedges.append([v1,v2,0])
+                    else:
+                        connectingedges.append([v2,v1,0])
 
-    return a1, a2, a3, a4, a5
+            connectingedges.remove(er)
+            # print("conn: {}".format(connectingedges))
+
+            for e in connectingedges:
+                # print("e: {}".format(e))
+                edges = self.E + [e]
+                treestring = self.edgestostring(edges)
+                if self.isinprocessedtrees(treestring):
+                    continue
+
+                self.addtoprocessedtrees(treestring)                
+                # print(self.E + [e])
+                capital = getcapital(self.V, edges, txsfile)
+                # print(capital)
+                if capital < C:
+                    C = capital
+                    newedge = e
+
+            self.E += [newedge]
+
+            if newedge == er:
+                # print("newedge: {}".format(newedge))
+                self.markedge(newedge)
+            else:
+                # print("unmarkall")
+                self.unmarkalledges()
+        print("")
+        # if rounds > len(self.V)*(len(self.V) - 1) /2:
+        t = time() - tstart           
+        print("Capital: {}, rounds: {}, time: {} s".format(C, rounds, t))
+        return self.V, self.E, C
+        # print("Capital of the optimal graph: {}".format(C))
+        # plotter.plotgraph([[e[0],e[1]] for e in self.E], self.V)
+
+    # def executetxs(self, txs):
+    #     self.ntxs = 0
+    #     for src, dest, amount in txs:
+    #         self.calccapital(src, dest, amount)
+    #         self.ntxs += 1
 
 
-def main():
-    args = ["run", ]
-    if len(sys.argv) < 2:
+
+
+def main(argv):
+    def parse(para, opt):
+        if len(argv) not in range(len(para)+2, len(para+opt)+3):
+            print("Pass parameters: {}, options: {}".format(para,opt))
+            print("exit"), exit()
+
+        a1 = int(argv[2])
+        a2 = int(argv[3])
+        a3 = int(argv[4])
+        a4 = int(argv[5])
+
+        try:
+            a5 = argv[6]
+        except IndexError:
+            a5 = 1
+
+        return a1, a2, a3, a4, a5
+
+    args = ["run"]
+    if len(argv) < 2:
         print("Pass an argument: {}".format(args))
         print("exit"), exit()
 
@@ -74,53 +236,36 @@ def main():
     RES_DIR = "results/"
     TRE_DIR = "trees/"
 
-    CMD = sys.argv[1]
+    CMD = argv[1]
 
     if CMD == "run":
         para = ["<number of nodes>", "<number of transactions>",
                 "<starting set>", "<ending set>"]
-        opt = ["<removed nodes>"]
+        opt = ["<iterations>"]
 
-        nnodes, ntxs, setstart, setend, rmd = parse(para, opt)
+        nnodes,ntxs,setstart,setend,it = parse(para, opt)
 
-        specadd = ""
-        mapping = None
-        if rmd != []:
-            rmd = re.findall(r'\d+', rmd)
-            rmd = [int(x) for x in rmd]
-            specadd = "_rmd{}".format(rmd)
-            nodes = [n for n in range(nnodes) if n not in rmd]
-            mapping = getmapping(nodes)
+        it = int(it)
+
+        nodes = range(nnodes)
+        rtree = OptimalTree(nnodes)
 
         for s in range(setstart, setend+1):
-            print("## SET {} ##".format(s))
+            print("## SET {}".format(s))
+            spec = "{}n_{}txs_set{}".format(nnodes,ntxs,s)
 
-            spec = "{}n_{}txs_set{}".format(nnodes, ntxs, s)
-            spec += specadd
+            nnodes = nnodes
+            tnxfile = TXS_DIR + "randomtxs_"+ spec +".data"
+            # treedata = TRE_DIR + "trees_{}n.data".format(nnodes)
+            # resultdata = RES_DIR + "result_"+ spec +".data"
+            # resultgraph = RES_DIR + "result_"+ spec +"_graph_{}.png"
 
-            nnodes = nnodes - len(rmd)
-            treedata = TRE_DIR + "trees_{}n.data".format(nnodes)
-            tnxfile = TXS_DIR + "randomtxs_" + spec + ".data"
-            resultdata = RES_DIR + "result_" + spec + ".data"
 
-            txs = ff.readfile(tnxfile)
+            V, E, C = rtree.getoptimalgraph(tnxfile, it)
 
-            maxflows, nodes = getmaxflowsandnodes(txs[2:])
-            print(maxflows)
+            print("Optimal capital: {}".format(C))
 
-            # print("Max flow edge: {}".format(maxflow))
-            edges = []
-            for i in range(len(nodes) - 1): 
-                edge = max(maxflows, key= lambda x: maxflows[x][0])
-                maxflows.pop(edge)
-                
-                edge = re.findall(r'\d+', edge)
-                edges.append([int(x) for x in edge])
-
-            print(edges)
-
-            # edges = [[x[0], x[1]] for x in maxflows]
-            # plotter.plotgraph(edges, nodes)
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv)
+

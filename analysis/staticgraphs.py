@@ -7,11 +7,13 @@ from random import SystemRandom
 import matplotlib.pyplot as plt
 import numpy as np
 
+sys.path.append('../')
+
 from filefunctions import writefile
 from filefunctions import readfile
 
 from executor import Executor
-import plotter
+from plotter import plotgraph
 
 
 class Star(Executor):
@@ -175,7 +177,7 @@ class FullMesh(Executor):
     # topology.createtopologyplot("test.png", show=True)
 
 if __name__ == "__main__":
-    TXS_DIR = "transaction_sets/"
+    TXS_DIR = "../transaction_sets/"
     N_NODES = 30
     N_TXS = 1000
     SET = 1

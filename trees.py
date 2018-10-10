@@ -139,7 +139,7 @@ def rename(tree, mapping):
             e[i] = mapping[1][index]
 
 if __name__ == '__main__':
-    args = ["create", "run"]
+    args = ["create", "run", "plot"]
     if len(sys.argv) < 2:
         print("Pass an argument: {}".format(args))
         print("exit"), exit()
