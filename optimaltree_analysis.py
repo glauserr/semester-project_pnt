@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from optimaltree import OptimalTree as OPT
 import filefunctions as ff
 
+
 def main():
     argv = sys.argv
     def parse(para, opt):
@@ -31,6 +32,14 @@ def main():
         print("Pass an argument: {}".format(args))
         print("exit"), exit()
 
+    TXS_DIR = "transaction_sets/"
+    RES_DIR = "results/"
+    OUT_DIR = "optimaltree_analysis/"
+
+    import os
+    if not os.path.exists("./" + OUT_DIR):
+        os.mkdir(OUT_DIR)    
+
     CMD = argv[1]
     if CMD == "run":
         para = ["<number of nodes>", "<number of transactions>",
@@ -43,10 +52,6 @@ def main():
         for s in range(setstart, setend+1):
             set = s
             print("Set {}".format(set))
-
-            TXS_DIR = "transaction_sets/"
-            RES_DIR = "results/"
-            OUT_DIR = "optimaltree_analysis/"
 
             txsfile = TXS_DIR + "randomtxs_{}n_{}txs_set{}.data".format(nnodes,ntxs,set)
             resultdata = RES_DIR + "result_{}n_{}txs_set{}.data".format(nnodes,ntxs,set)
@@ -96,9 +101,6 @@ def main():
 
         for s in range(setstart, setend+1):
             set = s
-            TXS_DIR = "transaction_sets/"
-            RES_DIR = "results/"
-            OUT_DIR = "optimaltree_analysis/"
 
             txsfile = TXS_DIR + "randomtxs_{}n_{}txs_set{}.data".format(nnodes,ntxs,set)
             resultdata = RES_DIR + "result_{}n_{}txs_set{}.data".format(nnodes,ntxs,set)

@@ -148,6 +148,12 @@ if __name__ == '__main__':
     RES_DIR = "results/"
     TRE_DIR = "trees/"
 
+    import os
+    if not os.path.exists("./" + TRE_DIR):
+        os.mkdir(TRE_DIR)
+    if not os.path.exists("./" + RES_DIR):
+        os.mkdir(RES_DIR)
+
     CMD = sys.argv[1]
 
     if CMD == "create":

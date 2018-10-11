@@ -17,6 +17,10 @@ FILE = TXS_DIR + "randomtxs_{}n_{}txs_set{}.data".format(N_NODES,
 
 _sysrand = SystemRandom()
 
+import os
+if not os.path.exists("./" + TXS_DIR):
+    os.mkdir(TXS_DIR)
+
 def randomtx():
     repeat = True
     while repeat:
