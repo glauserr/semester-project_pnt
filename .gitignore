@@ -8,3 +8,9 @@ log.txt
 transaction_sets/
 
 results/
+
+optimaltree_analysis/
+
+trees/
+
+*.log

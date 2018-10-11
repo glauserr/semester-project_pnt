@@ -91,15 +91,6 @@ class OptimalTree():
         for e in self.E:
             e[2] = 0
 
-    # def getcapital(self, edges, txsfile):
-    #     # sender, receiver, capital, maxcapital, open channels
-
-    #     self.channels = [[str(x[0]), str(x[1]), 0, 0 ,0] for x in edges]
-    #     self.channels += [[str(x[1]), str(x[0]), 0, 0 ,0] for x in edges]
-    #     self.createroutetable()
-    #     C, ch, txs = self.run(txsfile)
-    #     return C
-
     def isinprocessedtrees(self, treestring):
         return treestring in self.processedtrees
 
@@ -111,43 +102,46 @@ class OptimalTree():
         tree.sort()
         return str(tree)        
 
-    def getoptimalgraph(self, txsfile, iterations=1):
+    def getoptimaltree(self, txsfile, iterations=1):
         optC = sys.maxsize
         optE = []
         optV = []
         self.processedtrees =  []
+        additionals = []
         for i in range(iterations):
-            V, E, C = self.randomizedalg(txsfile)
+            V, E, C, ads = self.randomizedalg(txsfile)
+            additionals.append(ads)
             if C < optC:
                 optC = C
                 optE = E
                 optV = V
 
-        return optV, optE, optC
+        return optV, optE, optC, additionals
 
 
     def randomizedalg(self, txsfile):
-        tstart = time()
-        repeat = True
+        # tstart = time()
+        # repeat = True
         # while repeat:
         self.createrandomtree()
         treestring = self.edgestostring(self.E)
-        repeat = self.isinprocessedtrees(treestring)
+        # repeat = self.isinprocessedtrees(treestring)
 
         self.addtoprocessedtrees(treestring)
         C = getcapital(self.V, self.E, txsfile)
         newedge = None
 
-        _sysrand = SystemRandom()
+        # _sysrand = SystemRandom()
         rounds = 0
+        getcapcals = 1
         # print(self.unmakrededgeexists())
         while self.unmakrededgeexists():
             # print(self.E)
-            print(".", end="")
+            # print(".", end="")
             rounds += 1
             unmarkededges = self.getunmarkededges()
             while 1: 
-                ir = _sysrand.randint(0, len(unmarkededges)-1)
+                ir = self._sysrand.randint(0, len(unmarkededges)-1)
                 # ir = 0 ### REMOVE
                 er = unmarkededges[ir]
                 if er != newedge:
@@ -179,6 +173,7 @@ class OptimalTree():
                 self.addtoprocessedtrees(treestring)                
                 # print(self.E + [e])
                 capital = getcapital(self.V, edges, txsfile)
+                getcapcals += 1
                 # print(capital)
                 if capital < C:
                     C = capital
@@ -192,21 +187,13 @@ class OptimalTree():
             else:
                 # print("unmarkall")
                 self.unmarkalledges()
-        print("")
+        # print("")
         # if rounds > len(self.V)*(len(self.V) - 1) /2:
-        t = time() - tstart           
-        print("Capital: {}, rounds: {}, time: {} s".format(C, rounds, t))
-        return self.V, self.E, C
+        # t = time() - tstart           
+        # print("Capital: {}, rounds: {}, time: {} s".format(C, rounds, t))
+        return self.V, self.E, C, (rounds, getcapcals)
         # print("Capital of the optimal graph: {}".format(C))
         # plotter.plotgraph([[e[0],e[1]] for e in self.E], self.V)
-
-    # def executetxs(self, txs):
-    #     self.ntxs = 0
-    #     for src, dest, amount in txs:
-    #         self.calccapital(src, dest, amount)
-    #         self.ntxs += 1
-
-
 
 
 def main(argv):
@@ -261,10 +248,11 @@ def main(argv):
             # resultgraph = RES_DIR + "result_"+ spec +"_graph_{}.png"
 
 
-            V, E, C = rtree.getoptimalgraph(tnxfile, it)
+            V, E, C, ads = rtree.getoptimaltree(tnxfile, it)
 
             print("Optimal capital: {}".format(C))
-
+    else:
+        print("{} unknown. Allowed args: {}".format(CMD, args))
 
 if __name__ == '__main__':
     main(sys.argv)
