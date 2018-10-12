@@ -9,8 +9,7 @@ from random import SystemRandom
 import filefunctions as ff
 import plotter as plotter
 
-from executor import Executor
-
+from capital import getcapital
 
 def sequencetotree(sequence):
     n = len(sequence)
@@ -24,10 +23,10 @@ def sequencetotree(sequence):
     for v in sequence:
         for n in nodes:
             if degree[n] == 1:
-                sv = "n" + str(v)           
-                sn = "n" + str(n)           
-                T.append([sv, sn, 0, 0, 0])
-                T.append([sn, sv, 0, 0, 0])
+                if v < n:
+                    T.append([v, n])
+                else:
+                    T.append([n, v])
                 degree[v] -= 1
                 degree[n] -= 1
                 break
@@ -43,10 +42,10 @@ def sequencetotree(sequence):
                 v = n
                 break
 
-    su = "n" + str(u)           
-    sv = "n" + str(v)           
-    T.append([su, sv, 0, 0, 0])
-    T.append([sv, su, 0, 0, 0])
+    if v < u:
+        T.append([v, u])
+    else:
+        T.append([u, v])
     degree[u] -= 1
     degree[v] -= 1
 
@@ -97,15 +96,8 @@ def loadtree(filname):
                 yield retVal
                 retVal = []
             else:
-                retVal.append([x for x in row[:2]] + [int(x) for x in row[2:]])
+                retVal.append([int(x) for x in row])
 
-
-class Tree(Executor):
-
-    def settree(self, E, nnodes=None, nodes=None):
-        super().__init__(nnodes=nnodes, nodes=nodes)
-        self.channels = E
-        self.createroutetable()
 
 def parse(para, opt):
     if len(sys.argv) not in range(len(para)+2, len(para+opt)+3):
@@ -124,20 +116,6 @@ def parse(para, opt):
 
     return a1, a2, a3, a4, a5
 
-def getmapping(nodes):
-    mapping = [[],[]]
-    for i,n in enumerate(nodes):
-        mapping[0].append("n{}".format(i))
-        mapping[1].append("n{}".format(n))
-
-    return mapping
-
-def rename(tree, mapping):
-    for e in tree:
-        for i,x in enumerate(e[0:2],0):
-            index = mapping[0].index(x)
-            e[i] = mapping[1][index]
-
 if __name__ == '__main__':
     args = ["create", "run", "plot"]
     if len(sys.argv) < 2:
@@ -153,7 +131,7 @@ if __name__ == '__main__':
         os.mkdir(TRE_DIR)
     if not os.path.exists("./" + RES_DIR):
         os.mkdir(RES_DIR)
-
+        
     CMD = sys.argv[1]
 
     if CMD == "create":
@@ -169,32 +147,21 @@ if __name__ == '__main__':
     elif CMD == "run":
         para = ["<number of nodes>", "<number of transactions>",
                 "<starting set>", "<ending set>"]
-        opt = ["<removed nodes>"]
+        opt = [""]
 
         nnodes,ntxs,setstart,setend,rmd = parse(para, opt)
-
-        specadd = ""
-        mapping = None
-        if rmd != []:
-            rmd = re.findall(r'\d+', rmd)
-            rmd = [int(x) for x in rmd]   
-            specadd = "_rmd{}".format(rmd)
-            nodes = [n for n in range(nnodes) if n not in rmd]
-            mapping = getmapping(nodes)
 
         for s in range(setstart, setend+1):
             print("## SET {} ##".format(s))
 
             spec = "{}n_{}txs_set{}".format(nnodes,ntxs,s)
-            spec += specadd
 
-            nnodes = nnodes - len(rmd)
             treedata = TRE_DIR + "trees_{}n.data".format(nnodes)
             tnxfile = TXS_DIR + "randomtxs_"+ spec +".data"
             resultdata = RES_DIR + "result_"+ spec +".data"
 
+            V = range(nnodes)
             capital = list()
-            tree = Tree()
             lt = loadtree(treedata)
             numberoftrees = math.pow(nnodes, nnodes-2)
 
@@ -208,22 +175,16 @@ if __name__ == '__main__':
                 
             while 1:
                 try:
-                    t = next(lt)
+                    E = next(lt)
                 except StopIteration:
                     break
 
-                if mapping != None:
-                    rename(t,mapping)
-                    tree.settree(t, nodes=mapping[1])
-                else:
-                    tree.settree(t, nnodes=nnodes)
-
-                cap, chan, txs = tree.run(tnxfile)
+                cap = getcapital(V, E, tnxfile)
                 capital.append((cap,index))
 
                 if index % int(percstep*numberoftrees/100) == 0:
                     print("{} %".format(percstep * \
-                        int(100*index/numberoftrees/percstep + 0.5)), end=".. ")
+                        int(100*index/numberoftrees/percstep + 0.5)), end=".. ", flush=True)
                 index += 1
             print("")
 
@@ -249,26 +210,15 @@ if __name__ == '__main__':
     elif CMD == "plot":
         para = ["<number of nodes>", "<number of transactions>",
                 "<starting set>", "<ending set>"]
-        opt = ["<removed nodes>"]
+        opt = [""]
 
         nnodes,ntxs,setstart,setend,rmd = parse(para, opt)
 
-        specadd = ""
-        mapping = None
-        if rmd != []:
-            rmd = re.findall(r'\d+', rmd)
-            rmd = [int(x) for x in rmd]   
-            specadd = "_rmd{}".format(rmd)
-            nodes = [n for n in range(nnodes) if n not in rmd]
-            mapping = getmapping(nodes)
-        else:
-            nodes = range(nnodes)
+        nodes = range(nnodes)
 
         for s in range(setstart, setend+1):
             spec = "{}n_{}txs_set{}".format(nnodes,ntxs,s)
-            spec += specadd
 
-            nnodes = nnodes - len(rmd)
             treedata = TRE_DIR + "trees_{}n.data".format(nnodes)
             resultdata = RES_DIR + "result_"+ spec +".data"
             resultgraph = RES_DIR + "result_"+ spec +"_graph_{}.png"
@@ -286,14 +236,9 @@ if __name__ == '__main__':
                 
                 t = ff.readfileatuntil(treedata, pos, "tree {} end".format(tn), 
                     delimiter=" ")
-
-                if mapping != None:
-                    rename(t,mapping)
                 
                 edges = [[int(x[0].replace('n','')),int(x[1].replace('n',''))] \
                     for x in t]
-
-                edges = [x for i,x in enumerate(edges,0) if i % 2 == 0 ]
 
                 plotter.plotgraph(edges, nodes, 
                     savefilename=resultgraph.format(tn))

@@ -1,6 +1,8 @@
 # Semester Project - Exploring Centralized Payment Network Topology
 
 
+Setting up lighning network on local machine:
+
 SETUP:
 
 	1. install docker and docker-compose
