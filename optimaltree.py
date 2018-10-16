@@ -7,6 +7,7 @@ import sys
 from time import time
 from random import SystemRandom
 
+import plotter as plotter
 from capital import getcapital
 
 class OptimalTree():
@@ -16,11 +17,30 @@ class OptimalTree():
         self.createrandomtree()
 
     def createrandomtree(self):
-        self.V, E = self.getrandomtree(self.nnodes)
+        self.V, E = self.getrandomtree()
         self.E = [x + [0] for x in E]
 
-    def getrandomtree(self, nnodes):
-        V = list(range(nnodes))
+    def createbeststar(self, txsfile):
+        minC = sys.maxsize
+        T = None
+        for i in range(self.nnodes):
+            V, E = self.getstar(i)
+            C = getcapital(self.V, self.E, txsfile)
+            if C < minC:
+                minC = C
+                T = [V, E]
+
+        self.V, E = T
+        self.E = [x + [0] for x in E]
+        return minC
+
+    def createstar(self):
+        i = self._sysrand.randint(0, self.nnodes - 1)
+        self.V, E = self.getstar(i)
+        self.E = [x + [0] for x in E]
+
+    def getrandomtree(self):
+        V = list(range(self.nnodes))
         E = []
         treeset = []  # spanning tree set
         nodeset = V.copy()
@@ -40,6 +60,18 @@ class OptimalTree():
 
             nodeset.remove(node)
             treeset.append(node)
+
+        return V, E
+
+    def getstar(self, centernode):
+        V = list(range(self.nnodes))
+        E = []
+        for v in V:
+            if v != centernode:
+                if v < centernode:
+                    E.append([v,centernode])
+                else:
+                    E.append([centernode,v])
 
         return V, E
     
@@ -86,10 +118,14 @@ class OptimalTree():
 
     def markedge(self, edge):
         edge[2] = 1
+        self.markededgelist.append(edge)
 
     def unmarkalledges(self):
         for e in self.E:
             e[2] = 0
+
+    def getmarkededgelist(self):
+        return self.markededgelist
 
     def isinprocessedtrees(self, treestring):
         return treestring in self.processedtrees
@@ -102,14 +138,14 @@ class OptimalTree():
         tree.sort()
         return str(tree)        
 
-    def getoptimaltree(self, txsfile, iterations=1):
+    def getoptimaltree(self, txsfile, iterations=1, start="random"):
         optC = sys.maxsize
         optE = []
         optV = []
         self.processedtrees =  []
         additionals = []
         for i in range(iterations):
-            V, E, C, ads = self.randomizedalg(txsfile)
+            V, E, C, ads = self.randomizedalg(txsfile, start)
             additionals.append(ads)
             if C < optC:
                 optC = C
@@ -119,38 +155,34 @@ class OptimalTree():
         return optV, optE, optC, additionals
 
 
-    def randomizedalg(self, txsfile):
-        # tstart = time()
-        # repeat = True
-        # while repeat:
-        self.createrandomtree()
+    def randomizedalg(self, txsfile, starting):
+        self.markededgelist = [] # list to count how often edges are marked
+        if starting == "star":
+            # self.createbeststar(txsfile)
+            self.createstar()
+        elif starting == "random":
+            self.createrandomtree()
+        else:
+            print("Warning! OptimalTree: staring with random tree")
+            self.createrandomtree()
         treestring = self.edgestostring(self.E)
-        # repeat = self.isinprocessedtrees(treestring)
 
         self.addtoprocessedtrees(treestring)
         C = getcapital(self.V, self.E, txsfile)
         newedge = None
 
-        # _sysrand = SystemRandom()
         rounds = 0
-        getcapcals = 1
-        # print(self.unmakrededgeexists())
+        checkedgraphs = 1
         while self.unmakrededgeexists():
-            # print(self.E)
-            # print(".", end="")
             rounds += 1
             unmarkededges = self.getunmarkededges()
             while 1: 
                 ir = self._sysrand.randint(0, len(unmarkededges)-1)
-                # ir = 0 ### REMOVE
                 er = unmarkededges[ir]
                 if er != newedge:
                     break;   
             self.E.remove(er)
             ((V1,E1), (V2,E2)) = self.getsubgraphs(self.E, er[0], er[1]) 
-            # print("e random: {}".format(er))
-            # print(V1)
-            # print(V2)
             newedge = er
             connectingedges = []
             for v1 in V1:
@@ -161,20 +193,16 @@ class OptimalTree():
                         connectingedges.append([v2,v1,0])
 
             connectingedges.remove(er)
-            # print("conn: {}".format(connectingedges))
 
             for e in connectingedges:
-                # print("e: {}".format(e))
                 edges = self.E + [e]
                 treestring = self.edgestostring(edges)
                 if self.isinprocessedtrees(treestring):
                     continue
 
                 self.addtoprocessedtrees(treestring)                
-                # print(self.E + [e])
                 capital = getcapital(self.V, edges, txsfile)
-                getcapcals += 1
-                # print(capital)
+                checkedgraphs += 1
                 if capital < C:
                     C = capital
                     newedge = e
@@ -182,18 +210,11 @@ class OptimalTree():
             self.E += [newedge]
 
             if newedge == er:
-                # print("newedge: {}".format(newedge))
                 self.markedge(newedge)
             else:
-                # print("unmarkall")
                 self.unmarkalledges()
-        # print("")
-        # if rounds > len(self.V)*(len(self.V) - 1) /2:
-        # t = time() - tstart           
-        # print("Capital: {}, rounds: {}, time: {} s".format(C, rounds, t))
-        return self.V, self.E, C, (rounds, getcapcals)
-        # print("Capital of the optimal graph: {}".format(C))
-        # plotter.plotgraph([[e[0],e[1]] for e in self.E], self.V)
+
+        return self.V, self.E, C, (rounds, checkedgraphs)
 
 
 def main(argv):
@@ -243,10 +264,6 @@ def main(argv):
 
             nnodes = nnodes
             tnxfile = TXS_DIR + "randomtxs_"+ spec +".data"
-            # treedata = TRE_DIR + "trees_{}n.data".format(nnodes)
-            # resultdata = RES_DIR + "result_"+ spec +".data"
-            # resultgraph = RES_DIR + "result_"+ spec +"_graph_{}.png"
-
 
             V, E, C, ads = rtree.getoptimaltree(tnxfile, it)
 

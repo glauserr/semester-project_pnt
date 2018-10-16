@@ -27,14 +27,14 @@ def searchinfile(filename, text):
             line = mm.readline().decode('utf-8')
         return index, line
 
-def readfileat(filename, start, end, delimiter=""):
+def readfileat(filename, start, nlines, delimiter=""):
     retval = []
     with open(filename, 'rb', 0) as file, \
         mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as mm:
         mm.seek(start)
         index = start
-        while index < end:
-            line = mm.readline().decode('utf-8').rstrip().split(" ")
+        for i in range(nlines):
+            line = mm.readline().decode('utf-8').rstrip()
             retval.append(line.split(delimiter))
 
     return retval

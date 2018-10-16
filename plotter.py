@@ -8,8 +8,10 @@ import random
 def plotgraph(edges, nodes, savefilename=None):
     G_1 = nx.Graph()
     G_1.add_edges_from(edges)
-    pos = {i:(random.randint(0,50),
-              random.randint(0,100)) for i in nodes}
+    m = 5 * max(nodes)
+    print(m)
+    pos = {i:(random.randint(0,m),
+              random.randint(0,2*m)) for i in nodes}
 
     import warnings
     import matplotlib.cbook
