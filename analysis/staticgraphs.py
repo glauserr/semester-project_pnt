@@ -178,7 +178,7 @@ class FullMesh(Executor):
 
 if __name__ == "__main__":
     TXS_DIR = "../transaction_sets/"
-    N_NODES = 30
+    N_NODES = 21
     N_TXS = 1000
     SET = 1
 

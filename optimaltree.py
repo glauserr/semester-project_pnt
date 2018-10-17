@@ -16,23 +16,85 @@ class OptimalTree():
         self._sysrand = SystemRandom()
         self.createrandomtree()
 
+    def getoptimaltree(self, txsfile, iterations=1, start="random"):
+        optC = sys.maxsize
+        optE = []
+        optV = []
+        self.processedtrees =  []
+        additionals = []
+        for i in range(iterations):
+            V, E, C, ads = self.randomizedalg(txsfile, start)
+            additionals.append(ads)
+            if C < optC:
+                optC = C
+                optE = E
+                optV = V
+
+        return optV, optE, optC, additionals
+        
+    def randomizedalg(self, txsfile, starting):
+        self.markededgelist = [] # list to count how often edges are marked
+        if starting == "star":
+            self.createstar()
+        elif starting == "random":
+            self.createrandomtree()
+        else:
+            print("Warning! OptimalTree: staring with random tree")
+            self.createrandomtree()
+        treestring = self.edgestostring(self.E)
+
+        self.addtoprocessedtrees(treestring)
+        C = getcapital(self.V, self.E, txsfile)
+        newedge = None
+
+        rounds = 0
+        checkedgraphs = 1
+        while self.unmakrededgeexists():
+            rounds += 1
+            unmarkededges = self.getunmarkededges()
+            while 1: 
+                ir = self._sysrand.randint(0, len(unmarkededges)-1)
+                er = unmarkededges[ir]
+                if er != newedge:
+                    break;   
+            self.E.remove(er)
+            ((V1,E1), (V2,E2)) = self.getsubgraphs(self.E, er[0], er[1]) 
+            newedge = er
+            connectingedges = []
+            for v1 in V1:
+                for v2 in V2:
+                    if v1 < v2:
+                        connectingedges.append([v1,v2,0])
+                    else:
+                        connectingedges.append([v2,v1,0])
+
+            connectingedges.remove(er)
+
+            for e in connectingedges:
+                edges = self.E + [e]
+                treestring = self.edgestostring(edges)
+                if self.isinprocessedtrees(treestring):
+                    continue
+
+                self.addtoprocessedtrees(treestring)                
+                capital = getcapital(self.V, edges, txsfile)
+                checkedgraphs += 1
+                if capital < C:
+                    C = capital
+                    newedge = e
+
+            self.E += [newedge]
+
+            if newedge == er:
+                self.markedge(newedge)
+            else:
+                self.unmarkalledges()
+
+        return self.V, self.E, C, (rounds, checkedgraphs)
+
     def createrandomtree(self):
         self.V, E = self.getrandomtree()
         self.E = [x + [0] for x in E]
-
-    def createbeststar(self, txsfile):
-        minC = sys.maxsize
-        T = None
-        for i in range(self.nnodes):
-            V, E = self.getstar(i)
-            C = getcapital(self.V, self.E, txsfile)
-            if C < minC:
-                minC = C
-                T = [V, E]
-
-        self.V, E = T
-        self.E = [x + [0] for x in E]
-        return minC
 
     def createstar(self):
         i = self._sysrand.randint(0, self.nnodes - 1)
@@ -137,84 +199,6 @@ class OptimalTree():
         tree = [str(x[0]) + str(x[1]) for x in edges]
         tree.sort()
         return str(tree)        
-
-    def getoptimaltree(self, txsfile, iterations=1, start="random"):
-        optC = sys.maxsize
-        optE = []
-        optV = []
-        self.processedtrees =  []
-        additionals = []
-        for i in range(iterations):
-            V, E, C, ads = self.randomizedalg(txsfile, start)
-            additionals.append(ads)
-            if C < optC:
-                optC = C
-                optE = E
-                optV = V
-
-        return optV, optE, optC, additionals
-
-
-    def randomizedalg(self, txsfile, starting):
-        self.markededgelist = [] # list to count how often edges are marked
-        if starting == "star":
-            # self.createbeststar(txsfile)
-            self.createstar()
-        elif starting == "random":
-            self.createrandomtree()
-        else:
-            print("Warning! OptimalTree: staring with random tree")
-            self.createrandomtree()
-        treestring = self.edgestostring(self.E)
-
-        self.addtoprocessedtrees(treestring)
-        C = getcapital(self.V, self.E, txsfile)
-        newedge = None
-
-        rounds = 0
-        checkedgraphs = 1
-        while self.unmakrededgeexists():
-            rounds += 1
-            unmarkededges = self.getunmarkededges()
-            while 1: 
-                ir = self._sysrand.randint(0, len(unmarkededges)-1)
-                er = unmarkededges[ir]
-                if er != newedge:
-                    break;   
-            self.E.remove(er)
-            ((V1,E1), (V2,E2)) = self.getsubgraphs(self.E, er[0], er[1]) 
-            newedge = er
-            connectingedges = []
-            for v1 in V1:
-                for v2 in V2:
-                    if v1 < v2:
-                        connectingedges.append([v1,v2,0])
-                    else:
-                        connectingedges.append([v2,v1,0])
-
-            connectingedges.remove(er)
-
-            for e in connectingedges:
-                edges = self.E + [e]
-                treestring = self.edgestostring(edges)
-                if self.isinprocessedtrees(treestring):
-                    continue
-
-                self.addtoprocessedtrees(treestring)                
-                capital = getcapital(self.V, edges, txsfile)
-                checkedgraphs += 1
-                if capital < C:
-                    C = capital
-                    newedge = e
-
-            self.E += [newedge]
-
-            if newedge == er:
-                self.markedge(newedge)
-            else:
-                self.unmarkalledges()
-
-        return self.V, self.E, C, (rounds, checkedgraphs)
 
 
 def main(argv):
