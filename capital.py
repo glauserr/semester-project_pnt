@@ -1,5 +1,7 @@
 #!/bin/python3
 
+import copy
+
 from filefunctions import readfile as readtxsdata
 from graphfunctions import getroutetables
 
@@ -19,8 +21,12 @@ def getcapital(V, E, txfile):
 
     return C
 
-def getcapitalontxs(V, E, txs):
-    channels = [[e[0], e[1], 0, 0, 0, 0] for e in E]
+def getcapitalontxs(V, E, txs, weights=None):
+    if weights == True:
+        channels = copy.deepcopy(E)
+    else:
+        channels = [e + [0, 0, 0, 0] for e in E]
+
     nodes = V
 
     routetables = getroutetables(nodes, channels)
@@ -30,7 +36,7 @@ def getcapitalontxs(V, E, txs):
     for nl, nr, Cl, Cr, maxCl, maxCr in channels:
         C += maxCl + maxCr
 
-    return C
+    return C, channels
 
 def processtxs(routetables, channels, txs):
     def updatecapital(leftnode, rightnode, amount):
@@ -63,6 +69,7 @@ def processtxs(routetables, channels, txs):
         except ValueError:
             print("Fatal error: lookup error. node: {}, dest: {}, amount: {}".format(
                 node, dest, amount))
+            print(channels)
             print("exit")
             exit()
 

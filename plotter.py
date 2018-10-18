@@ -21,8 +21,12 @@ def plotgraph(edges, nodes, savefilename=None):
     
     if savefilename != None:
         plt.savefig(savefilename)
-    else:
-        plt.show()
+    # else:
+    #     # plt.show()
+    #     pass
+
+def show():
+    plt.show()
 
 
 # class CapitalVisualization(Executor):

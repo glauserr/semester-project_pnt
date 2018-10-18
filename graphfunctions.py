@@ -106,6 +106,48 @@ def getcycles(v, E):
 
     return paths
 
+
+def getedges(v, E):
+    return [e for e in E if e[0] == v or e[1] == v]
+
+def getnodes(E):
+    V = []
+    for e in E:
+        if e[0] not in V:
+            V += [e[0]]
+        if e[1] not in V:
+            V += [e[1]]
+
+    return V
+
+def getsubgraphs(v1, v2, E):
+    def edgeforwarding(fV, passednode, fE, usededge):
+        v = getneighborhood(passednode, [usededge])
+        es = getedges(v[0], E)
+        fV.append(v[0])
+        fE.append(usededge)
+
+        if len(es) == 0:
+            print("Error at getsubgraphs")
+            print("exit")
+            exit()
+        else:
+            es.remove(usededge)
+            for e in es:
+                edgeforwarding(fV, v[0], fE, e)
+
+    E1 = []
+    V1 = [v1]
+    for edge in getedges(v1, E):
+        edgeforwarding(V1, v1, E1, edge)
+    E2 = []
+    V2 = [v2]
+    for edge in getedges(v2, E):
+        edgeforwarding(V2, v2, E2, edge)
+
+    return ((V1,E1),(V2,E2))
+
+
     
 if __name__ == '__main__':
     E = [[0, 1],[9,4],[4,7],[4,2],[4,3],[2,8],[1,9],[5,9], [6,0]]

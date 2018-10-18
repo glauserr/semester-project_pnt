@@ -1,6 +1,6 @@
 #!/bin/python3
 
-import re,sys, json
+import re,sys, json, copy
 from time import time
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,7 +8,6 @@ from collections import Counter
 
 from optimaltree import OptimalTree as OPT
 import filefunctions as ff
-
 
 def main():
     argv = sys.argv
@@ -95,12 +94,13 @@ def main():
             trees = []
             capitals = []
             deviations = []
+            txs = ff.readfile(txsfile)[2:]
             for i in range(iterations):
                 start = time()
                 if CMD == "run_on_star":
-                    V, E, C, ads = alg.getoptimaltree(txsfile, start="star")
+                    V, E, C, W, ads = alg.getoptimaltree(txs, start="star")
                 else:
-                    V, E, C, ads = alg.getoptimaltree(txsfile)
+                    V, E, C, W, ads = alg.getoptimaltree(txs)
                 end = time()
                 # output tree
                 edges = [str(x[0]) + "-" + str(x[1]) for x in E]
@@ -419,7 +419,7 @@ def main():
                         else:
                             occurrencewrongedges.update([e])
 
-                    listofoccurrence.append(ocedges.copy())
+                    listofoccurrence.append(copy.deepcopy(ocedges))
 
                 for i,opte in enumerate(opttree,0):
                     oc = sum([x[i] for x in listofoccurrence])

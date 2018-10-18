@@ -95,8 +95,8 @@ class MaxPaymentAlgWithCycles():
                 ctxs = list(indexedtxs.items())
                 ctxs.sort(key=lambda x: x[0])
                 ctxs = [x[1] for x in ctxs]
-                C1 = getcapitalontxs(V, E, ctxs)
-                C2 = getcapitalontxs(V, E + [edge], ctxs)
+                C1,W = getcapitalontxs(V, E, ctxs)
+                C2,W = getcapitalontxs(V, E + [edge], ctxs)
 
                 if C2 < C1:
                     E += [edge]
@@ -168,7 +168,7 @@ class MaxPaymentAlgWithReduction():
 
                     cEtmp = cE.copy()
                     cEtmp.remove(ce)
-                    C = getcapitalontxs(V, cEtmp, ctxs)
+                    C,W = getcapitalontxs(V, cEtmp, ctxs)
 
                     if C < bestC:
                         bestC = C
